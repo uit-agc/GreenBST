@@ -1,5 +1,7 @@
 #!/bin/bash
 
+function join { local IFS="$1"; shift; echo "$*"; }
+
 ARCH=MIC
 INIT=4194303
 RANGE=8388608
@@ -77,6 +79,11 @@ do
 				done <<< "$STATS"
 				n=$((n+1))
 			done
+
+			if [ $ctr == 1 ]; then
+				echo OPERATIONS,THREADS,UPD_RATE,`join , "${LABEL[@]}"` >> results/$prog.$ARCH.csv
+				ctr=$((ctr+1))
+			fi
 
 			echo $STR >> results/$prog.$ARCH.csv
 

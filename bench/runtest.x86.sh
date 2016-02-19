@@ -1,5 +1,7 @@
 #!/bin/bash
 
+function join { local IFS="$1"; shift; echo "$*"; }
+
 ARCH=x86
 INIT=8388607
 RANGE=16777216
@@ -12,6 +14,8 @@ for file in results/*.dat; do mv "$file" "${file}.old"; done
 
 for prog in "BSTTK" "GreenBST" "LFBST"  "SVEB"  "citrus" "CBTree"  
 do
+	ctr=1
+
 	for upd in 0 50
 	do
 		for thread in 1 6 12 18 24
@@ -77,6 +81,11 @@ do
 				done <<< "$STATS"
 				n=$((n+1))
 			done
+
+			if [ $ctr == 1 ]; then
+				echo OPERATIONS,THREADS,UPD_RATE,`join , "${LABEL[@]}"` >> results/$prog.$ARCH.csv
+				ctr=$((ctr+1))
+			fi
 
 			echo $STR >> results/$prog.$ARCH.csv
 
