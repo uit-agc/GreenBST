@@ -39,8 +39,8 @@ int main(int argc, char **argv ) {
 
     int s, u, n, i, t, r, v;       //Various parameters
 
-    i = 127;            //default initial element count
-    t = 1023;           //default triangle size
+    i = 1023;            //default initial element count
+    t = 2047;           //default triangle size
     r = 5000000;        //default range size
     u = 10;             //default update rate
     s = 0;              //default seed
