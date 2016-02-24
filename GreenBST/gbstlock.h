@@ -1,6 +1,6 @@
 //
 //  gbstlock.h
-//  
+//
 //
 //  Created by Ibrahim Umar on 12/02/16.
 //
@@ -23,11 +23,11 @@
 
 #endif
 
-int gbst_lock_init(gbst_lock_t* lock);
+int gbst_lock_init(gbst_lock_t *lock);
 
-int gbst_lock(gbst_lock_t* lock);
+int gbst_lock(gbst_lock_t *lock);
 
-int gbst_unlock(gbst_lock_t* lock);
+int gbst_unlock(gbst_lock_t *lock);
 
 
 #endif /* gbstlock_h */
