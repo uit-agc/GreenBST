@@ -850,7 +850,7 @@ int deleteNode_lo(struct global *universe, _NODETYPE val)
 		gbst_lock(&start->lock);
 		start = move_right(val, start);
 
-		struct node *temp = smart_it_search_lo(start->a, start->a, val);
+		struct node *temp = smart_it_search(start->a, start->a, val);
 
 		if (val == temp->value) {
 			temp->value = (temp->value | 1 << 31);
