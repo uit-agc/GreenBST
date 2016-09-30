@@ -2,11 +2,9 @@
 
 This repository contains the source code and the benchmark framework from the below article:
 
-`
-Ibrahim Umar, Otto J. Anshus, and Phuong H. Ha. GreenBST: An energy-efficient concurrent search tree. Proceedings of the 22nd International European Conference on Parallel and Distributed Computing (Euro-Par ’16), 2016, LNCS, pp. 502-517, Springer.[(link)](http://dx.doi.org/10.1007/978-3-319-43659-3_37)
-`
+*Ibrahim Umar, Otto J. Anshus, and Phuong H. Ha. GreenBST: An energy-efficient concurrent search tree. Proceedings of the 22nd International European Conference on Parallel and Distributed Computing (Euro-Par ’16), 2016, LNCS, pp. 502-517, Springer.[(link)](http://dx.doi.org/10.1007/978-3-319-43659-3_37)*
 
-### License
+# License
 
 * GreenBST, the benchmark routines, and the building frameworks is developed by UiT and licensed under the Apache License, Version 2.0.
 
@@ -14,7 +12,7 @@ Ibrahim Umar, Otto J. Anshus, and Phuong H. Ha. GreenBST: An energy-efficient co
 
 * Other trees are developed by their respective authors and retain their original licenses
 
-### To run the benchmark:
+# To run the benchmark:
 
 1. Please make sure you have the Intel PCM library and PAPI library installed.
 2. Edit the ```common/common.mk``` to modify the the Intel PCM and PAPI libraries location.
@@ -23,7 +21,7 @@ Ibrahim Umar, Otto J. Anshus, and Phuong H. Ha. GreenBST: An energy-efficient co
 5. Run ```runtest.{ARCH}.sh``` to run the benchmark.
 6. You will find the benchmark results (in CSV format) inside the ```bench/results/``` directory
 
-### The trees
+# The trees
 
 **1. GreenBST**
 
