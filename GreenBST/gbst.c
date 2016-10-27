@@ -204,7 +204,7 @@ void init_tree_map(struct global *universe, int max_node, int max_depth)
 	myli[0].ts = 0;
 	myli[0].bs = 0;
 
-	if (!anc) anc = malloc((max_depth + 2) * sizeof(_NODETYPE));
+	if (!anc) anc = malloc((max_depth + 2) * sizeof(int));
 	if (!anc) exit(23);
 
 	printf("max_dep: %d, %d\n", max_dep, max_node);
@@ -212,7 +212,7 @@ void init_tree_map(struct global *universe, int max_node, int max_depth)
 	init_height(max_dep, 0);
 
 	//if(val) free(val);
-	int *val = malloc((size + 2) * sizeof(_NODETYPE));
+	int *val = malloc((size + 2) * sizeof(int));
 	if (!val) exit(23);
 
 	impl_report_al(val);
