@@ -95,7 +95,7 @@ struct GNode {
 
 	struct node *	a;
 	void **		b;
-} __attribute__ ((aligned));
+};
 
 
 struct global {
@@ -159,15 +159,7 @@ extern struct map *_map;
 extern struct map mapcontent[__PREALLOCGNODES];
 
 //Pool
-
-struct pool {
-	struct node	nodepool[MAX_POOLSIZE][__PREALLOCGNODES];
-	struct GNode	GNodepool[MAX_POOLSIZE];
-	size_t		linkpool [MAX_POOLSIZE][__PREALLOCGNODES];
-};
-
-extern struct pool poolrepo;
-extern struct pool *_pool;
+extern char _pool [MAX_POOLSIZE][sizeof(struct GNode) + (sizeof(struct node) * (__PREALLOCGNODES + 1)) +  (sizeof(uintptr_t) * (__PREALLOCGNODES + 1))];
 
 //Counter
 extern unsigned poolCounter;

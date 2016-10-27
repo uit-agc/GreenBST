@@ -273,27 +273,40 @@ void *init_node(int max_node)
 
 #ifdef __PREALLOCGNODES
 
-	//Atomic
-	//printf("ctr: %d\n", *_poolCtr);
+	/* Atomic element taking from the pool */
 
 	unsigned ctr = atomic_inc(_poolCtr);
 
-	//if(ctr >= MAX_POOLSIZE) printf("Pool exhausted!\n");
+    if(ctr >= MAX_POOLSIZE){
+        printf("Pool exhausted! Exiting...\n");
+        exit(27);
+    }
 
-	//unsigned ctr = (*_poolCtr)++;
-	//printf("ctr: %d\n", ctr);
+    uintptr_t start = (uintptr_t) _pool[ctr - 1];
 
-	first = &_pool->GNodepool[ctr];
+	first = (struct GNode*) start;
 
-	first->a = _pool->nodepool[ctr];
-	first->b = (void **)&_pool->linkpool[ctr];
+    start = start + sizeof(struct GNode);
+
+	first->a = (struct node*) start;
+
+    start = start + (sizeof(struct node) * __PREALLOCGNODES);
+
+    first->b = (void **)(start);
 
 #else
 
-	first = calloc(1, sizeof(struct GNode));
+    uintptr_t start = (uintptr_t) calloc (sizeof(struct GNode) + (sizeof(struct node) * (max_node)) +  (sizeof(uintptr_t) * (max_node)), sizeof(char));
+    
+	first = (struct GNode*) start;
 
-	first->a = calloc(max_node, sizeof(struct node));
-	first->b = calloc(max_node, sizeof(void *));
+    start = start + sizeof(struct GNode);
+
+    first->a = (struct node*) start;
+
+    start = start + (sizeof(struct node) * max_node);
+
+    first->b = (void **)(start);
 
 #endif
 
@@ -1472,7 +1485,6 @@ greenbst_t *greenbst_alloc(int UB)
 
 #ifdef __PREALLOCGNODES
 	//Init the repo pointers
-	_pool = &poolrepo;
 	_poolCtr = &poolCounter;
 #endif
 
@@ -1488,9 +1500,9 @@ greenbst_t *greenbst_alloc(int UB)
 	universe->root = calloc(1, sizeof(struct GNode *));
 
 	unsigned size = 0;
-	size += (1 * sizeof(struct GNode));
-	size += (universe->max_node * sizeof(struct node));
-	size += (universe->max_node * sizeof(struct GNode *));
+	size += (sizeof(struct GNode));
+	size += ((universe->max_node + 1) * sizeof(struct node));
+	size += ((universe->max_node + 1) * sizeof(struct GNode *));
 
 	printf("GNode size is: %u bytes\n", size);
 
@@ -1544,8 +1556,7 @@ struct map *_map = NULL;
 struct map mapcontent[__PREALLOCGNODES];
 
 //Pool
-struct pool poolrepo;
-struct pool *_pool;
+char _pool [MAX_POOLSIZE][sizeof(struct GNode) + (sizeof(struct node) * (__PREALLOCGNODES + 1)) +  (sizeof(uintptr_t) * (__PREALLOCGNODES + 1))];
 
 //Counter
 unsigned *_poolCtr;
