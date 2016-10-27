@@ -114,11 +114,11 @@ ${PROF_OBJS}: %.o.prof: %.c
 #
 #Test
 #
-#${TARGET}.test: ${TEST_OBJS}
-#	${CC} ${LDFLAGS} -o $@ $^ ${LIBS} 
-#
-#${TEST_OBJS}: %.o.test: %.c
-#	${CC} ${CCFLAGS} ${TEST_CCFLAGS} ${TREE} -o $@ -c $< 
+${TARGET}.test: ${TEST_OBJS}
+	${CC} ${LDFLAGS} -o $@ $^ ${LIBS} 
+
+${TEST_OBJS}: %.o.test: %.c
+	${CC} ${CCFLAGS} ${TEST_CCFLAGS} ${TREE} -o $@ -c $< 
 
 
 clean:: 
