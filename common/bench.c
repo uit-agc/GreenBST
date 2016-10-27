@@ -634,6 +634,5 @@ void testseq(data_t root, int random){
   fprintf(stderr, "Error searching :%d!\n",count);
     
   free(values);
-  exit(0);
 }
 

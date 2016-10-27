@@ -112,8 +112,8 @@ int main(int argc, char **argv)
 
 #else
 
+  testseq(greenbstPtr, 1);
 	testpar(greenbstPtr, u, n, 1);
-	testseq(greenbstPtr, 1);
 
 #endif
 
