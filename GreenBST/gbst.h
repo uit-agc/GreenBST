@@ -85,7 +85,7 @@ struct node {
 
 struct GNode {
 	unsigned	rev;
-	unsigned	high_key;
+	_NODETYPE	high_key;
 	struct GNode *	sibling;
 	char		isleaf;
 
