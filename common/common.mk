@@ -25,7 +25,7 @@ PROFLIB = -lpapi
 OBJS    := ${SRCS:.c=.o} ${ADDONS:.c=.o} 
 
 #Default CFLAGS and LDFLAGS
-CCFLAGS = -g -O3 -DNDEBUG -D_REENTRANT -Wall -funroll-loops -fno-strict-aliasing -I${CMN_INC} ${EXTRAC}
+CCFLAGS = -g -Os -DNDEBUG -D_REENTRANT -Wall -I${CMN_INC} ${EXTRAC}
 LIBS = -lm -lpthread ${EXTRAL}
 
 #Test flags
