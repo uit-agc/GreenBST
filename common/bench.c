@@ -67,7 +67,7 @@ pthread_barrier_t bench_barrier;
 
 
 // RANGE: (1 - r)
-inline int rand_range_re(unsigned int *seed, long r) {
+static inline int rand_range_re(unsigned int *seed, long r) {
     return (rand_r(seed) % r) + 1;
 }
 
