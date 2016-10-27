@@ -226,8 +226,6 @@ void init_tree_map(struct global *universe, int max_node, int max_depth)
 	//for (d = 0; d <max_node ; d++)
 	//    printf( "<%d>, left %d, right %d\n", d, _map[d].left, _map[d].right);
 
-
-	//exit(0);
 }
 
 //---END RECURSIVE BRODAL!!!
@@ -349,31 +347,6 @@ void printStat(struct global *universe)
 }
 
 
-/* Array Functions (for buffer) */
-/*------------------------------*/
-
-
-void blank_int_array(int *array, size_t len)
-{
-	size_t i;
-
-	for (i = 0; i < len; i++)
-		array[i] = EMPTY;
-}
-
-
-/* detect duplicates from array */
-static int compact(int *array, int size)
-{
-	int i;
-	int last = 0;
-
-	for (i = 1; i < size; i++)
-		if (array[i] != array[last])
-			array[++last] = array[i];
-	return last + 1;
-}
-
 /* integer array printing function */
 void print_int_array(const _NODETYPE *array, size_t len)
 {
@@ -406,36 +379,6 @@ void check_int_array(const int *array, size_t len, struct node *tree)
 	}
 }
 
-
-/* qsort int comparison function (without leading zeroes) */
-int compare(const void *a, const void *b)
-{
-	if (*(int *)a == 0) return 1;
-	else
-	if (*(int *)b == 0) return -1;
-	else
-		return *(int *)a - *(int *)b;
-}
-
-
-void sort_all(int *array, long size)
-{
-	qsort(array, size, sizeof(int), compare);
-}
-
-
-void sort_detect_dup(int *array, int size)
-{
-	int sizeafter;
-
-	qsort(array, size, sizeof(int), compare);
-	sizeafter = compact(array, size);
-	if (sizeafter != size)
-		printf("Duplicates found after: %d\n", sizeafter);
-		//exit(1);
-}
-
-///---
 
 struct node *smart_it_search_lo(struct node *p, void *base, _NODETYPE val)
 {
@@ -546,9 +489,6 @@ int scannode(_NODETYPE key, void **temp, int max_depth)
 	bits >>= 1;
 	bits <<= ((max_depth - depth));
 
-	//report_all((*temp)->a);
-	//printf("scannode bits: %d\n", bits);
-
 	/* Follow next_right if high_key is less than searched value*/
 	if (A->high_key > 0 && A->high_key <= key) {
 		*temp = A->sibling;
@@ -625,7 +565,6 @@ struct GNode *smart_scannode_lo(struct GNode *start, _NODETYPE val, int max_dept
 		bits >>= 1;
 		bits <<= ((max_depth - depth));
 
-		//printf("finding %d: lastnode->val:%d, bits:%d, depth:%d\n", val, last_node->value, bits, depth);
 		if (start->sibling && start->high_key <= val) {
 			start = start->sibling;
 		} else {
@@ -633,7 +572,6 @@ struct GNode *smart_scannode_lo(struct GNode *start, _NODETYPE val, int max_dept
 				push(stk, start);
 				start = link[bits];
 			} else {
-				//printf( "Hops(val): %d(%d)\n", hops, val);
 				return start;
 			}
 		}
@@ -678,9 +616,6 @@ void smart_fill_val_parent_lo(struct node *p, void *base, _NODETYPE *buf, void *
 
 	val = buf[mid];
 	child = linkbuf[mid];
-
-	//printf("#child:%d (mid:%d), #content:\n", val, mid);
-	//report_all(child->a);
 
 	struct node *temp = detailed_node_search(p, p, val, &origin_bits, &depth);
 
@@ -927,8 +862,6 @@ void smart_fill_val_inc(struct node *p, void *base, _NODETYPE *buf, int l, int r
 {
 	unsigned mid = 0;
 
-	//printf("l %d, r %d\n", l, r);
-
 	if (p == 0) return;
 
 	if (l > r) {
@@ -943,8 +876,6 @@ void smart_fill_val_inc(struct node *p, void *base, _NODETYPE *buf, int l, int r
 		smart_fill_val_inc(left(p, base), base, buf, l, mid - 1);
 
 		p->value = buf[mid];
-
-		//printf("%d: %d\n", mid, buf[mid]);
 
 		smart_fill_val_inc(right(p, base), base, buf, mid + 1, r);
 	}
@@ -961,12 +892,10 @@ int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *dep
 	}
 
 	if (p->value == EMPTY) {
-		//printf("Insert at %d!\n", *depth);
 		p->value = val;
 		current->count_node++;
-		//(*depth)++;
 
-		//This is the last level, see if we need rebalance
+        //This is the last level, see if we need rebalance
 		if (right(p, base) == NULL) (*done) = 1;
 		return 1;
 	}
@@ -988,9 +917,6 @@ int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *dep
 
 				//float calc = ((1<<(*depth+1))-1) * 0.5;
 
-
-				//printf("In level %d, value: %d, count is %d (%f)!\n", *depth, _val(p->value), c, calc);
-
 				if (c <= calc) {
 					//printf(" Need rebalance! \n");
 
@@ -999,17 +925,11 @@ int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *dep
 
 					int max_node = (1 << (*depth + 1)) - 1;
 
-					//printf(" Max is: %d\n", max_node);
-
 					memset(buf, 0, max_node * sizeof(_NODETYPE));
 
 					fill_buf(p, base, buf, &count);
 
-					//printf(" Count is: %d\n", count);
-
 					atomic_inc(&current->rev);
-
-					//memset(current->a, 0, max_node * sizeof(struct node));
 
 					smart_fill_val_inc(p, base, buf, 0, count - 1);
 
@@ -1031,9 +951,6 @@ int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *dep
 
 				//float calc = ((1<<(*depth+1))-1) * 0.5;
 
-
-				//printf("In level %d, value: %d, count is %d (%f)!\n", *depth, _val(p->value), c, calc);
-
 				if (c <= calc) {
 					//printf(" Need rebalance! \n");
 
@@ -1042,17 +959,11 @@ int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *dep
 
 					int max_node = (1 << (*depth + 1)) - 1;
 
-					//printf(" Max is: %d\n", max_node);
-
 					memset(buf, 0, max_node * sizeof(_NODETYPE));
 
 					fill_buf(p, base, buf, &count);
 
-					//printf(" Count is: %d\n", count);
-
 					atomic_inc(&current->rev);
-
-					//memset(current->a, 0, max_node * sizeof(struct node));
 
 					smart_fill_val_inc(p, base, buf, 0, count - 1);
 
@@ -1079,8 +990,6 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 
 	int max_node = universe->max_node;
 
-	//For calloc replacement
-
 	unsigned count = 0, countlink = 0, mid = 0, split = 0;
 
 	_NODETYPE *buf = &buf_content[0];
@@ -1088,15 +997,9 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 
 	struct GNode **root = universe->root;
 
-
-	/* Case: the tree does not exist yet.
-	 * Start a NEW tree.
+	/* The tree does not exist yet.
+	 * Start new tree.
 	 */
-
-	//fprintf(stderr, "--Insert %u\n", key);
-
-
-	//printf("Insert 1\n");
 
 	if (*root == NULL) {
 		//Try lock the global tree
@@ -1132,20 +1035,15 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 		}
 	}
 
-
 	gbst_lock(&current->lock);
 	current = move_right(key, current);
 
 	while (1) {
-		//printf("Insert 4\n");
 		char tempdone = 0;
-
 
 		reb = 0;
 
 		if (current->isleaf) {
-			//printf("Insert %d, size now: %d\n", key, sum_node(current->a, current->a));
-			//report_all(current->a);
 
 			int tempdepth = 0;
 
@@ -1154,64 +1052,19 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 			if (!success)
 				return 0;
 
-			//printf("Insert %d, size now: %d\n", key, current->count_node);
-			//report_all(current->a);
-			//printf("\n\n");
-
-
-
-			/*
-			 * //Now check whether the value exists
-			 * temp = smart_it_search(current->a, current->a, key);
-			 *
-			 * if(temp){
-			 *  if(_val(temp->value) == key){
-			 *      //printf( "exists!\n");
-			 *      gbst_unlock(&current->lock);
-			 *      return 0;
-			 *  }
-			 * }else{
-			 *  exit(100);
-			 * }
-			 *
-			 * templ = left(temp, current->a);
-			 * tempr = right(temp, current->a);
-			 *
-			 * if( key < _val(temp->value)){
-			 *                  //printf("insert here left %d!\n", get_idx(templ, current->a));
-			 *                  templ->value = key;
-			 *  //tempr->value = temp->value;
-			 *  //current->b[get_idx(templ, current->a)] = data;
-			 *  current->count_node++;
-			 *  if(left(templ, current->a) == 0) reb = 1;
-			 * }else{
-			 *                  //printf("insert here right %d!\n", get_idx(templ, current->a));
-			 *  //templ->value = temp->value;
-			 *  tempr->value = key;
-			 *  //temp->value = key;
-			 *  //current->b[get_idx(tempr, current->a)] = data;
-			 *  current->count_node++;
-			 *  if(left(templ, current->a) == 0) reb = 1;
-			 * }
-			 */
 		} else {
 			origin_bits = 0;
 			depth = 0;
 			temp = detailed_node_search(current->a, current->a, key, &origin_bits, &depth);
-			//if(!temp) {
-			//    exit(100);
-			//}else{
 			templ = left(temp, current->a);
 			tempr = right(temp, current->a);
 			depth++;
-			//if(key == temp->value) printf( "Sama!\n");
 
 			if (key < temp->value) {
 				temp->value = key;
 				templ->value = key2;
 				tempr->value = key;
 			} else {
-				//if(!templ) exit(9999);
 				templ->value = temp->value; //Careful!
 				temp->value = key;
 				tempr->value = key;
@@ -1220,29 +1073,15 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 			if (left(templ, current->a) == 0) reb = 1;
 			current->count_node += 2;
 			origin_bits = (origin_bits << 1) + 1;
-			//}
 
 			//Adjust the links
 			origin_bits = origin_bits << (universe->max_depth - depth);
 
 			//Place the links
 			current->b[origin_bits] = NEW;
-
-			//if(key < temp->value){
-			//    printf( "Kecil: %d - %d (%d)!\n", temp->value, key, key2);
-			//    printf( "Old:%d -- Origin:%d\n====\n", current->b[old_bits]->a->value, current->b[origin_bits]->a->value);
-			//    report_all(current->b[old_bits]->a);
-			//    report_all(current->b[origin_bits]->a);
-
-			//}
-
-			//printf("Parent depth:%d, bits_inserted:%d\n", depth, origin_bits);
-
-			//}
 		}
 
 		if (!tempdone && current->count_node < universe->split_thres) {
-			//insert_into_leaf(current, key, pointer);
 			if (current->isleaf) {
 				if (reb) {
 					//fprintf( stderr, "Rebalance leaf\n");
@@ -1352,13 +1191,6 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 				fill_buf_lo(current->a, current->a, buf, &count);
 				fill_linkbuf(current->b, buflink, max_node, &countlink);
 
-/*
- *              if (count != countlink){
- *                  print_int_array(buf, count);
- *                  printf( "Number of element (%d) is not equal with number of links (%d)!\n", count, countlink);
- *                  printf( "Number of pool used: %d!\n", *_poolCtr);
- *              }
- */
 				atomic_inc(&current->rev);
 
 				memset(current->a, 0, max_node * sizeof(struct node));
