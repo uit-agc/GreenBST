@@ -71,10 +71,22 @@ static inline int pthread_spin_lock_w(gbst_lock_t *lock)
 #define EMPTY   0
 #define FULL    1
 
-
 #define MAX_STACK 50
 
-#define _NODETYPE unsigned
+
+/* For 32 bit keys (unsigned) */
+
+#define _NODETYPE uint32_t
+#define _NODEWIDTH 32
+#define _NODESHIFT 2
+
+/* For 64 bit keys (unsigned long) */
+/*
+#define _NODETYPE uint64_t
+#define _NODEWIDTH 64
+#define _NODESHIFT 3
+*/
+
 
 struct map { size_t left; size_t right; } __attribute__ ((aligned));
 
@@ -168,50 +180,50 @@ extern unsigned *_poolCtr;
 #endif
 
 static inline
-unsigned _val(unsigned x)
+_NODETYPE _val(_NODETYPE x)
 {
-	return x & ~(1 << 31);
+	return x & ~((_NODETYPE)1 << (_NODEWIDTH-1));
 }
 
 static inline
-void set_mark(unsigned *value)
+void set_mark(_NODETYPE *value)
 {
-	*value = *value | 1 << 31;
+	*value = *value | (_NODETYPE)1 << (_NODEWIDTH-1);
 }
 
 static inline
-void unset_mark(unsigned *value)
+void unset_mark(_NODETYPE *value)
 {
-	*value = *value & ~(1 << 31);
+	*value = *value & ~((_NODETYPE)1 << (_NODEWIDTH-1));
 }
 
 static inline
-unsigned is_marked(unsigned value)
+int is_marked(_NODETYPE value)
 {
-	return value >> 31;
+	return value >> (_NODEWIDTH-1);
 }
+
+static inline
+int get_idx(void* p, void* base, size_t nodesize)
+{
+    return (int)((p - base)/nodesize);
+}
+
+/* Below is left and right WITHOUT branching. Careful with the node size. */
+
+#define left(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].left) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].left) >> (_NODEWIDTH-1)))
+#define right(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].right) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].right) >> (_NODEWIDTH-1)))
+
+/* Below is left and right WITH branching. Careful with the node size. */
+
+//#define left(p,base) (void*)(_map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].left?((uintptr_t)base + _map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].left):0)
+//#define right(p,base) (void*)(_map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].right?((uintptr_t)base + _map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].right):0)
 
 /*
- * static inline
- * int get_idx(void* p, void* base, size_t nodesize){
- *  return (int)((p - base)/nodesize);
- * }
- */
-
-//Below is left and right WITHOUT branch. Careful with the node size.
-
-//#define left(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>2].left) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>2].left) >> 63))
-//#define right(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>2].right) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>2].right) >> 63))
-
-//Below is left and right WITH branch. Careful with the node size.
-
-//#define left(p,base) (void*)(_map[(int)(((uintptr_t)p - (uintptr_t)base)>>2)].left?((uintptr_t)base + _map[(int)(((uintptr_t)p - (uintptr_t)base)>>2)].left):0)
-//#define right(p,base) (void*)(_map[(int)(((uintptr_t)p - (uintptr_t)base)>>2)].right?((uintptr_t)base + _map[(int)(((uintptr_t)p - (uintptr_t)base)>>2)].right):0)
-
 static inline
 void *left(void *p, void *base)
 {
-	int idx = (int)(((size_t)p - (size_t)base) >> 2);
+	int idx = (int)(((size_t)p - (size_t)base) >> _NODESHIFT);
 
 	//fprintf(stderr, "going left from index %d, to %ld (%d)\n", idx, _map[idx].left + base, _map[idx].left );
 
@@ -224,7 +236,7 @@ void *left(void *p, void *base)
 static inline
 void *right(void *p, void *base)
 {
-	int idx = (int)(((size_t)p - (size_t)base) >> 2);
+	int idx = (int)(((size_t)p - (size_t)base) >> _NODESHIFT);
 
 	//fprintf(stderr, "going right from index %d, to %ld (%d)\n", idx, _map[idx].right + base, _map[idx].right );
 
@@ -233,7 +245,7 @@ void *right(void *p, void *base)
 	else
 		return 0;
 }
-
+*/
 typedef struct global greenbst_t;
 
 greenbst_t *greenbst_alloc(int t);

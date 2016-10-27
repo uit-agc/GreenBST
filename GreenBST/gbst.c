@@ -986,7 +986,9 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 
 	int reb = 0;
 
-	int origin_bits, depth, key2 = 0;
+    int origin_bits, depth;
+
+    _NODETYPE key2 = 0;
 
 	int max_node = universe->max_node;
 
