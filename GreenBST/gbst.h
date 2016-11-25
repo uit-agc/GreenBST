@@ -32,6 +32,7 @@
 #ifndef gbst_h
 #define gbst_h
 
+#include <stdint.h>
 #include "gbstlock.h"
 #include "locks.h"
 
