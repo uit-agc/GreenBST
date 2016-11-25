@@ -1,7 +1,5 @@
 #!/bin/bash
 
-function join { local IFS="$1"; shift; echo "$*"; }
-
 ARCH=ARM
 INIT=4194303
 RANGE=8388608
@@ -82,7 +80,12 @@ do
 			done
 			
 			if [ $ctr == 1 ]; then
-				echo OPERATIONS,THREADS,UPD_RATE,`join , "${LABEL[@]}"` >> results/$prog.$ARCH.csv
+				for lab in ${LABEL[@]}
+				do
+					join_ret+=$(printf ",%s,%s_STDEV" "$lab" "$lab")
+				done
+				join_ret=${join_ret:1}
+				echo OPERATIONS,THREADS,UPD_RATE,$join_ret >> results/$prog.$ARCH.csv
 				ctr=$((ctr+1))
 			fi
 
