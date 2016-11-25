@@ -207,7 +207,7 @@ int is_marked(_NODETYPE value)
 static inline
 int get_idx(void* p, void* base, size_t nodesize)
 {
-    return (int)((p - base)/nodesize);
+    return (int)(((uintptr_t)p - (uintptr_t)base)/nodesize);
 }
 
 /* Below is left and right WITHOUT branching. Careful with the node size. */
