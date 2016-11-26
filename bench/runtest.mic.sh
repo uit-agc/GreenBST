@@ -12,6 +12,8 @@ for file in results/*.dat; do mv "$file" "${file}.old"; done
 
 for prog in "BSTTK" "GreenBST" "LFBST"  "SVEB"  "citrus" "CBTree"
 do
+	join_ret=""
+	ctr=1
 	for upd in 0 50
 	do
 		for thread in 1 14 28 57
