@@ -22,6 +22,16 @@
 #ifndef bench_h
 #define bench_h
 
+#ifdef NOP //Nothing
+
+#define data_t int
+
+#define BENCH_SEARCH(root, x) (0==0)
+#define BENCH_DELETE(root, x) (0==0)
+#define BENCH_INSERT(root, x) (0==0)
+
+#endif
+
 #ifdef SVEB //Static implicit veb
 
 #include "../SVEB/staticvebtree.h"
@@ -72,19 +82,6 @@
 
 #endif
 
-#ifdef DTREE
-
-#include "../DeltaTree/dtree.h"
-
-#define data_t struct global*
-
-#define BENCH_SEARCH(root, x)  searchNode_lo(root, x)
-#define BENCH_DELETE(root, x)  deleteNode_lo(root, x)
-#define BENCH_INSERT(root, x)  insert_par(root, x, x)
-
-#endif
-
-
 #ifdef GBST
 
 #include "../GreenBST/gbst.h"
@@ -94,18 +91,6 @@
 #define BENCH_SEARCH(root, x)  greenbst_contains(root, x)
 #define BENCH_DELETE(root, x)  greenbst_delete(root, x)
 #define BENCH_INSERT(root, x)  greenbst_insert(root, x, 0)
-
-#endif
-
-#ifdef BBST
-
-#include "../BlueBST/tree.h"
-
-#define data_t struct global*
-
-#define BENCH_SEARCH(root, x)  searchNode(root, x)
-#define BENCH_DELETE(root, x)  deleteNode(root, x)
-#define BENCH_INSERT(root, x)  insertNode(root, x)
 
 #endif
 
@@ -136,6 +121,70 @@
 
 #endif
 
+#ifdef BWTREE
+
+#include "../bwtree/bwtree.h"
+
+using namespace wangziqi2013::bwtree;
+
+class KeyComparator {
+ public:
+  inline bool operator()(const int k1, const int k2) const {
+    return k1 < k2;
+  }
+
+  KeyComparator(int dummy) {
+    (void)dummy;
+
+    return;
+  }
+
+  KeyComparator() = delete;
+};
+
+class KeyEqualityChecker {
+ public:
+  inline bool operator()(const int k1, const int k2) const {
+    return k1 == k2;
+  }
+
+  KeyEqualityChecker(int dummy) {
+    (void)dummy;
+
+    return;
+  }
+
+  KeyEqualityChecker() = delete;
+};
+
+using TreeType = BwTree<int,
+                        int,
+                        KeyComparator,
+                        KeyEqualityChecker>;
+
+#define data_t TreeType*
+
+int getVals(data_t, unsigned);
+
+#define BENCH_SEARCH(root, x)  getVals(root, x)
+#define BENCH_DELETE(root, x)  root->Delete(x, x)
+#define BENCH_INSERT(root, x)  root->Insert(x, x)
+
+#endif
+
+#ifdef ABTREE
+
+#include "../abtree/adapter.h"
+
+#define data_t ds_adapter<int, void *>*
+
+#define BENCH_SEARCH(root, x)  (root->contains(threadID, x) == true ? 1 : 0)
+#define BENCH_DELETE(root, x)  (root->erase(threadID, x) == (void *) 0 ? 1 : 0)
+#define BENCH_INSERT(root, x)  (root->insertIfAbsent(threadID, x, (void*) 0) == root->getNoValue() ? 1 : 0)
+
+#endif
+
+void start_prefill(data_t, int, int, int, int);
 void start_benchmark(data_t, int, int , int, int);
 void testseq(data_t, int);
 void testpar(data_t, int, int, int);

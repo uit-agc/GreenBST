@@ -78,7 +78,7 @@ typedef struct node {
         pthread_spinlock_t lock;
         struct node * right_link;
         int high_key;
-
+	unsigned rev;
 } node;
 
 

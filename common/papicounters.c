@@ -130,22 +130,19 @@ char papi_events[NUM_EVENTS][PAPI_MAX_STR_LEN]={
 
 #ifdef __KNC__
 
-#define NUM_EVENTS 13
+#define NUM_EVENTS 10
 
 char papi_events[NUM_EVENTS][PAPI_MAX_STR_LEN]={
-		"CPU_CLK_UNHALTED:mg=0:mh=0",
-		"DATA_READ_MISS_OR_WRITE_MISS:mg=0:mh=0",
-		"L1_DATA_HIT_INFLIGHT_PF1:mg=0:mh=0",
-		"DATA_READ_OR_WRITE:mg=0:mh=0",
-		"L2_DATA_READ_MISS_CACHE_FILL:mg=0:mh=0",
-		"L2_DATA_READ_MISS_MEM_FILL:mg=0:mh=0",
-		"L2_DATA_WRITE_MISS_CACHE_FILL:mg=0:mh=0",
-		"L2_DATA_WRITE_MISS_MEM_FILL:mg=0:mh=0",
-		"EXEC_STAGE_CYCLES:mg=0:mh=0",
-		"L2_VICTIM_REQ_WITH_DATA:mg=0:mh=0",
-		"INSTRUCTIONS_EXECUTED:mg=0:mh=0",
-		"SNP_HITM_L2:mg=0:mh=0",
-		"L2_DATA_PF1_MISS:mg=0:mh=0",
+			"CPU_CLK_UNHALTED:mg=0:mh=0",
+			"INSTRUCTIONS_EXECUTED:mg=0:mh=0",
+			"DATA_READ_MISS_OR_WRITE_MISS:mg=0:mh=0",
+			"DATA_READ_OR_WRITE:mg=0:mh=0",
+			"L2_DATA_WRITE_MISS_CACHE_FILL:mg=0:mh=0",
+			"L2_DATA_WRITE_MISS_MEM_FILL:mg=0:mh=0",
+			"L2_WRITE_HIT:mg=0:mh=0",
+			"L2_VICTIM_REQ_WITH_DATA:mg=0:mh=0",
+			"SNP_HITM_L2:mg=0:mh=0",
+			"L2_DATA_READ_MISS_MEM_FILL:mg=0:mh=0"
 };
 
 #endif /*__KNC__*/
@@ -357,17 +354,13 @@ int prof_print_all_threads(int threads, long long** values)
 
 	printf("#D,L1_MISS_RATIO,%f\n", (double)temp[2]/temp[3]);
 
-	printf("#D,L2_MISS_RATIO,%f\n", (double)(temp[4]+temp[5]+temp[6]+temp[7])/temp[2]);
+	printf("#D,L2_WRITE_MISS_RATIO,%f\n", (double)(temp[4]+temp[5])/(temp[4]+temp[5]+temp[6]));
 
-	printf("#D,L2_MISS_RATIO_CACHE_FILL,%f\n", (double)(temp[4]+temp[6])/temp[2]);
+	printf("#D,CACHE_2_CACHE_TRANSFER,%lld\n", 64*temp[8]);
 
-	printf("#D,L2_MISS_RATIO_MEM_FILL,%f\n", (double)(temp[5]+temp[7])/temp[2]);
+	printf("#D,L2_WRITE_BACK,%lld\n", 64*temp[7]);
 
-	printf("#D,DTLB_MISS_RATIO,%f\n", (double)temp[8]/temp[9]);
-
-	printf("#D,BR_MISPREDICTED,%f\n", (double)temp[10]/temp[11]);
-
-	printf("#D,TOT_L2_RW_MISS,%lld\n", temp[4]+temp[5]+temp[6]+temp[7]);
+	printf("#D,MEM_TRANSFER,%lld\n", 64*(temp[5]+temp[9]));
 #endif
 
 	return 0;

@@ -1,7 +1,7 @@
 /*
  * main.c
  *
- * DeltaTree
+ * GreenBST
  *
  * This is part of the tree library
  *
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "-r <NUM>    : Range size\n");
 			fprintf(stderr, "-u <0..100> : Update ratio. 0 = Only search; 100 = Only updates\n");
 			fprintf(stderr, "-i <NUM>    : Initial tree size (inital pre-filled element count)\n");
-			fprintf(stderr, "-t <NUM>    : DeltaNode size\n");
+			fprintf(stderr, "-t <NUM>    : GNode size\n");
 			fprintf(stderr, "-n <NUM>    : Number of threads\n");
 			fprintf(stderr, "-s <NUM>    : Random seed. 0 = using time as seed\n");
 			fprintf(stderr, "-v <0 or 1> : Valgrind mode (less stats). 0 = False; 1 = True\n");
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 	}
 	fprintf(stderr, "Parameters:\n");
 	fprintf(stderr, "- Range size r:\t\t %d\n", r);
-	fprintf(stderr, "- DeltaNode size t:\t %d\n", t);
+	fprintf(stderr, "- GNode size t:\t %d\n", t);
 	fprintf(stderr, "- Update rate u:\t %d%% \n", u);
 	fprintf(stderr, "- Number of threads n:\t %d\n", n);
 	fprintf(stderr, "- Initial tree size i:\t %d\n", i);
@@ -94,18 +94,15 @@ int main(int argc, char **argv)
 	greenbst_t *greenbstPtr = greenbst_alloc(t);
 	assert(greenbstPtr);
 
-#ifndef __PREALLOCGNODES
-	init_threads(greenbstPtr->max_node);
-#endif
-
 #if !defined(__TEST)
+	initial_add(greenbstPtr, 1, r);
 
 	if (i) {
 		fprintf(stderr, "Now pre-filling %d random elements...\n", i);
-		initial_add(greenbstPtr, i, r);
+		start_prefill(greenbstPtr, r, u, 1, i);
 	}
 
-	fprintf(stderr, "Finished init a DeltaTree using DeltaNode size %d, with initial %d members\n", greenbstPtr->max_node, i);
+	fprintf(stderr, "Finished init a GreenBST using GNode size %d, with initial %d members\n", greenbstPtr->max_node, i);
 	fflush(stderr);
 
 	start_benchmark(greenbstPtr, r, u, n, v);

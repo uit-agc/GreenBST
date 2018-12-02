@@ -101,35 +101,33 @@ int main(int argc, char **argv)
 	set = set_new();
 
 
+#if GC == 1
+        alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+        assert(alloc != NULL);
+        ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, n);
+#endif
+
+
 #if !defined(__TEST)
 	
 	unsigned int global_seed = rand();
 
 	uint64_t val;
 
-#if GC == 1
-	alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-	assert(alloc != NULL);
-	ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, n);
-#endif
+	val = rand_range_re2(&global_seed, r);
+	bst_tk_insert(set, val, val);
 	
-	/* Populate set */
-	printf("Adding %d entries to set\n",i);
-	j = 0;
-	while (j < i) {
-		val = rand_range_re2(&global_seed, r);
-		if (bst_tk_insert(set, val, val)) {
-			j++;
-		}
+	if(i > 0) {
+		/* Populate set */
+		printf("Adding %d entries to set\n",i);
+		start_prefill(set, r, u, n, i);
 	}
-	
+
 	start_benchmark(set, r, u, n, 0);
 
 #else
-
-	testpar(set, u, n, 1);
 	testseq(set, 1);
-
+	testpar(set, u, n, 1);
 #endif
 
 	return 0;

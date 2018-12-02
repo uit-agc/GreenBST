@@ -137,23 +137,23 @@ int main(int argc, char **argv)
 
 	global_seed = rand();
 
+	urcu_register(0);
 #if !defined(__TEST)
 
-	/* Populate set */
-	printf("Adding %d entries to set\n", i);
-	j = 0;
-	while (j < i) {
-		val = rand_range_re1(&global_seed, r);
-		if (insert(root, val, 0)) {
-			j++;
-		}
+	val = rand_range_re1(&global_seed, r);
+	insert(root, val, 0);
+
+	if(i > 0) {
+		/* Populate set */
+		printf("Adding %d entries to set\n", i);
+		start_prefill(root, r, u, n, i);
 	}
+
 	start_benchmark(root, r, u, n, 0);
 
 #else
-
-	testpar(root, u, n, 1);
 	testseq(root, 1);
+	testpar(root, u, n, 1);
     
 #endif
 

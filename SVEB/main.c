@@ -33,7 +33,7 @@ int main(int argc, char **argv ) {
     
     //myname = argv[0];
     
-    i = 127;            //default initial element count
+    i = 1023;            //default initial element count
     t = 1023;           //default triangle size
     r = 5000000;        //default range size
     u = 10;             //default update rate
@@ -43,7 +43,7 @@ int main(int argc, char **argv ) {
     
     v=0;                //default valgrind mode (reduce stats)
     
-    fprintf(stderr,"\nDeltaTree v0.1\n===============\n\n");
+    fprintf(stderr,"\nSVEB v0.1\n===============\n\n");
     if(argc < 2)
         fprintf(stderr,"NOTE: No parameters supplied, will continue with defaults\n");
     fprintf(stderr,"Use -h switch for help.\n\n");
@@ -89,22 +89,20 @@ int main(int argc, char **argv ) {
     init_tree(t);
 
 #if !defined(__TEST)
-	
+    initial_add(1, r);
     if(i){
         fprintf(stderr,"Now pre-filling %d random elements...\n", i);
-        initial_add(i, r);
+        start_prefill(NULL, r, u, n, i);
     }
     
-    fprintf(stderr, "Finished init a DeltaTree using DeltaNode size %d, with initial %d members\n", r, i);
+    fprintf(stderr, "Finished init a SVEB (VEB layout tree) with initial %d members\n", r, i);
     fflush(stderr);
     
     start_benchmark(NULL, r, u, n, v);
     
 #else
-
-	testpar(NULL, u, n, 1);
 	testseq(NULL, 1);
-    
+	testpar(NULL, u, n, 1);
 #endif
 
 	exit(0);

@@ -23,6 +23,7 @@ PROFLIB = -lpapi
 
 #Default build objects
 OBJS    := ${SRCS:.c=.o} ${ADDONS:.c=.o} 
+OBJS_CXX:= ${SRCS_CXX:.cpp=.o}
 
 #Default CFLAGS and LDFLAGS
 CCFLAGS = -g -O3 -DNDEBUG -D_REENTRANT -Wall -I${CMN_INC} ${EXTRAC}
@@ -31,6 +32,12 @@ LIBS = -lm -lpthread ${EXTRAL}
 #Test flags
 TEST_CCFLAGS := -D__TEST
 TEST_OBJS    := ${SRCS:.c=.o.test} ${ADDONS:.c=.o.test} 
+TEST_OBJS_CXX    := ${SRCS_CXX:.cpp=.o.test}
+
+#Test flags
+TESTMEM_CCFLAGS := ${TEST_CCFLAGS} -D__TESTSPARSE
+TESTMEM_OBJS    := ${SRCS:.c=.o.testmem} ${ADDONS:.c=.o.testmem}
+TESTMEM_OBJS_CXX    := ${SRCS_CXX:.cpp=.o.testmem}
 
 #Energy FLAGS, LIBS, ADDONS
 ENE_CCFLAGS := -D__ENERGY
@@ -39,7 +46,7 @@ ifeq (${ARCH}, x86_64)
 ENE_CC = ${CXX}
 SRCENE   = ${CMN_INC}/pcmpower.c 
 ENE_CCFLAGS += -std=c++11 -I${PCM_DIR} -fpermissive
-ENE_LDFLAGS += -Wl,-rpath=${PCM_DIR}/intelpcm.so -L${PCM_DIR}/intelpcm.so -lintelpcm 
+ENE_LDFLAGS += -Wl,-rpath=${PCM_DIR}/pcm.so -L${PCM_DIR}/pcm.so -lpcm 
 endif
 
 ifeq (${ARCH}, armv7l)
@@ -53,6 +60,7 @@ SRCENE = ${CMN_INC}/micpower.c
 endif
 
 ENE_OBJS += ${SRCENE:.c=.o.ene} ${SRCS:.c=.o.ene} ${ADDONS:.c=.o.ene}
+ENE_OBJS_CXX += ${SRCS_CXX:.cpp=.o.ene}
 
 #Simulator (GEM5) FLAGS, LIBS, ADDONS
 
@@ -67,6 +75,7 @@ SIM_OBJS := ${GEM5_DIR_THREAD}/pthread.o ${GEM5_DIR_OPS}/m5op_x86.o
 #Profile FLAGS, LIBS, ADDONS
 
 PROF_OBJS += ${SRCPROF:.c=.o.prof} ${SRCS:.c=.o.prof} ${ADDONS:.c=.o.prof}
+PROF_OBJS_CXX += ${SRCS_CXX:.cpp=.o.prof}
 PROF_CCFLAGS += ${ADDFLAG}
 PROF_LDFLAGS += ${ADDLD} ${PROFLIB}
 
@@ -78,27 +87,36 @@ all:: ${TARGET} ${TARGET}.energy ${TARGET}.profile
 
 #Plain
 
-${TARGET}: ${OBJS}
+${TARGET}: ${OBJS} ${OBJS_CXX}
 	${CC} ${LDFLAGS} -o $@ $^ ${LIBS} 
 
 ${OBJS}: %.o: %.c
 	${CC} ${CCFLAGS} ${TREE} -o $@ -c $< 
 
+${OBJS_CXX}: %.o: %.cpp
+	${CXX} ${CCFLAGS} ${TREE} -o $@ -c $< 
+
 #Energy
 
-${TARGET}.energy: ${ENE_OBJS}
+${TARGET}.energy: ${ENE_OBJS} ${ENE_OBJS_CXX}
 	${ENE_CC} ${ENE_LDFLAGS} ${LDFLAGS} -o $@ $^ ${LIBS} 
 
 ${ENE_OBJS}: %.o.ene: %.c
 	${ENE_CC} ${ENE_CCFLAGS} ${CCFLAGS} ${TREE} -o $@ -c $< 
 
+${ENE_OBJS_CXX}: %.o.ene: %.cpp
+	${CXX} ${ENE_CCFLAGS} ${CCFLAGS} ${TREE} -o $@ -c $< 
+
 #Profile
 
-${TARGET}.profile: ${PROF_OBJS}
+${TARGET}.profile: ${PROF_OBJS} ${PROF_OBJS_CXX}
 	${CC} ${PROF_LDFLAGS} ${LDFLAGS} -o $@ $^ ${LIBS} 
 
 ${PROF_OBJS}: %.o.prof: %.c
 	${CC} ${PROF_CCFLAGS} ${CCFLAGS} ${TREE} -o $@ -c $< 
+
+${PROF_OBJS_CXX}: %.o.prof: %.cpp
+	${CXX} ${PROF_CCFLAGS} ${CCFLAGS} ${TREE} -o $@ -c $< 
 
 
 #Simulator
@@ -112,14 +130,28 @@ ${PROF_OBJS}: %.o.prof: %.c
 #${GEM5_DIR_OPS}/m5op_x86.o: ${GEM5_DIR_OPS}/m5op_x86.S
 #	$(CC) -O2 -c ${GEM5_DIR_OPS}/m5op_x86.S -o ${GEM5_DIR_OPS}/m5op_x86.o	
 #
+
 #Test
 #
-${TARGET}.test: ${TEST_OBJS}
+${TARGET}.test: ${TEST_OBJS} ${TEST_OBJS_CXX}
 	${CC} ${LDFLAGS} -o $@ $^ ${LIBS} 
 
 ${TEST_OBJS}: %.o.test: %.c
-	${CC} ${CCFLAGS} ${TEST_CCFLAGS} ${TREE} -o $@ -c $< 
+	${CC} ${CCFLAGS} ${TEST_CCFLAGS} ${TREE} -o $@ -c $<
 
+${TEST_OBJS_CXX}: %.o.test: %.cpp
+	${CXX} ${CCFLAGS} ${TEST_CCFLAGS} ${TREE} -o $@ -c $< 
+
+#Mem-sparse
+#
+${TARGET}.testmem: ${TESTMEM_OBJS} ${TESTMEM_OBJS_CXX}
+	${CC} ${LDFLAGS} -o $@ $^ ${LIBS}
+
+${TESTMEM_OBJS}: %.o.testmem: %.c
+	${CC} ${CCFLAGS} ${TESTMEM_CCFLAGS} ${TREE} -o $@ -c $<
+
+${TESTMEM_OBJS_CXX}: %.o.testmem: %.cpp
+	${CXX} ${CCFLAGS} ${TESTMEM_CCFLAGS} ${TREE} -o $@ -c $<
 
 clean:: 
-	-rm -f *~ ${OBJS} ${TEST_OBJS} ${SIM_OBJS} ${ENE_OBJS} ${PROF_OBJS} ${TARGET} ${TARGET}.test ${TARGET}.sim ${TARGET}.profile ${TARGET}.energy 
+	-rm -f *~ ${OBJS} ${TESTMEM_OBJS} ${TEST_OBJS} ${SIM_OBJS} ${ENE_OBJS} ${PROF_OBJS} ${OBJS_CXX} ${TESTMEM_OBJS_CXX} ${TEST_OBJS_CXX} ${SIM_OBJS_CXX} ${ENE_OBJS_CXX} ${PROF_OBJS_CXX} ${TARGET} ${TARGET}.testmem ${TARGET}.test ${TARGET}.sim ${TARGET}.profile ${TARGET}.energy

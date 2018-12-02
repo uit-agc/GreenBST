@@ -58,52 +58,13 @@
 #include "gbstlock.h"
 #include <pthread.h>
 
-#ifdef __PREALLOCGNODES
-
-__thread _NODETYPE buf_content [__PREALLOCGNODES];
-__thread size_t buflink_content[__PREALLOCGNODES];
-
-#else
-/* Don't forget to call init_threads after thread creation*/
-
-__thread _NODETYPE *buf_content = NULL;
-__thread size_t *buflink_content = NULL;
-
-void init_threads(int max_node)
-{
-	if (buf_content == NULL)
-		buf_content = calloc(max_node, sizeof(_NODETYPE));
-
-	if (buflink_content == NULL)
-		buflink_content = calloc(max_node, sizeof(void *));
-}
-
-#endif
-
 //---START RECURSIVE BRODAL!!!
-
 
 typedef struct li {
 	int p, ts, bs;
 } levelinfo;
 
-levelinfo *myli;
-
-int depth = 0;
-
-int size;
-
-int max_dep;
-
-int *anc;
-
-int bf;
-
-int h;
-
-//int e;
-
-void init_height(int top, int bot)
+void init_height(int top, int bot, levelinfo *myli)
 {
 	int me = (top + bot + 1) / 2;
 
@@ -114,35 +75,35 @@ void init_height(int top, int bot)
 
 	//printf("me: %d, p: %d, ts: %d, bs: %d\n", me, myli[me].p, myli[me].ts, myli[me].bs);
 
-	init_height(top, me);
-	init_height(me, bot);
+	init_height(top, me, myli);
+	init_height(me, bot, myli);
 }
 
 
-void impl_report_al_rec(int ad, int parent, int *val)
+void impl_report_al_rec(int ad, int parent, int *val, int *size, int *h, levelinfo *myli, int*depth, int *bf, int *anc)
 {
 	int left, right;
 
-	if (!(ad < size && h > 0)) return;
+	if (!(ad < *size && *h > 0)) return;
 
 	//_map[ad].parent = parent;
 	//_map[ad].depth = depth;
 
-	h--;
-	depth++;;
+	*h = *h - 1;
+	*depth = *depth + 1;
 
-	left = (bf = bf * 2, anc[h] = (myli[h].bs * (bf & myli[h].ts)) + myli[h].ts + anc[myli[h].p]);
+	left = (*bf = *bf * 2, anc[*h] = (myli[*h].bs * (*bf & myli[*h].ts)) + myli[*h].ts + anc[myli[*h].p]);
 
-	if (bf > size)
+	if (*bf > *size)
 		_map[ad].left = 0;
 	else
 		_map[ad].left = left * sizeof(_NODETYPE);
 
 	//printf("No:%d, left:%d, bf:%d, anc[h]:%d \n", ad, left, bf, anc[h]);
 
-	impl_report_al_rec(left, ad, val);
+	impl_report_al_rec(left, ad, val, size, h, myli, depth, bf, anc);
 
-	bf = bf >> 1;
+	*bf = *bf >> 1;
 
 
 
@@ -156,38 +117,50 @@ void impl_report_al_rec(int ad, int parent, int *val)
  */
 
 
-	right = (bf = 2 * bf + 1, anc[h] = (myli[h].bs * (bf & myli[h].ts)) + myli[h].ts + anc[myli[h].p]);
+	right = (*bf = 2 * *bf + 1, anc[*h] = (myli[*h].bs * (*bf & myli[*h].ts)) + myli[*h].ts + anc[myli[*h].p]);
 
-	if (bf > size)
+	if (*bf > *size)
 		_map[ad].right = 0;
 	else
 		_map[ad].right = right * sizeof(_NODETYPE);
 
 	//printf("No:%d, right:%d, bf:%d, anc[h]:%d \n", ad, right, bf, anc[h]);
 
-	impl_report_al_rec(right, ad, val);
+	impl_report_al_rec(right, ad, val, size, h, myli, depth, bf, anc);
 
-	h++;
-	bf = bf >> 1;
-	depth--;
+	*h = *h + 1;
+	*bf = *bf >> 1;
+	*depth = *depth - 1;
 
 
 	return;
 }
 
-void impl_report_al(int *val)
+void impl_report_al(int *val, int *size, int *h, levelinfo *myli, int*depth, int *bf, int *anc, int max_depth)
 {
-	h = max_dep;
+	*h = max_depth;
 
-	bf = 1;
+	*bf = 1;
 
-	anc[max_dep] = 0;
+	anc[max_depth] = 0;
 
-	impl_report_al_rec(0, 0, val);
+	impl_report_al_rec(0, 0, val, size, h, myli, depth, bf, anc);
 }
 
 void init_tree_map(struct global *universe, int max_node, int max_depth)
 {
+	levelinfo *myli = 0;
+
+	int depth = 0;
+
+	int size;
+
+	int *anc = 0;
+
+	int bf;
+
+	int h;
+
 #ifdef __PREALLOCGNODES
 	_map = &mapcontent[0];
 #else
@@ -195,27 +168,26 @@ void init_tree_map(struct global *universe, int max_node, int max_depth)
 #endif
 
 	size = max_node;
-	max_dep = max_depth;
 
-	if (!myli) myli = malloc((max_depth + 2) * sizeof(levelinfo));
+	if (!myli) myli = (levelinfo *) malloc((max_depth + 2) * sizeof(levelinfo));
 	if (!myli) exit(23);
 
 	myli[0].p = 0;
 	myli[0].ts = 0;
 	myli[0].bs = 0;
 
-	if (!anc) anc = malloc((max_depth + 2) * sizeof(int));
+	if (!anc) anc = (int*) malloc((max_depth + 2) * sizeof(int));
 	if (!anc) exit(23);
 
-	printf("max_dep: %d, %d\n", max_dep, max_node);
+	printf("max_depth: %d, %d\n", max_depth, max_node);
 
-	init_height(max_dep, 0);
+	init_height(max_depth, 0, myli);
 
 	//if(val) free(val);
-	int *val = malloc((size + 2) * sizeof(int));
+	int *val = (int*) malloc((size + 2) * sizeof(int));
 	if (!val) exit(23);
 
-	impl_report_al(val);
+	impl_report_al(val, &size, &h, myli, &depth, &bf, anc, max_depth);
 
 	free(val);
 	free(anc);
@@ -265,7 +237,7 @@ void report_all(struct node *p)
 	draw_helper(p, &depth, p, 0);
 }
 
-void *init_node(int max_node)
+struct GNode *init_node(int max_node)
 {
 	struct GNode *first;
 
@@ -273,38 +245,28 @@ void *init_node(int max_node)
 
 	/* Atomic element taking from the pool */
 
-	unsigned ctr = atomic_inc(_poolCtr);
+	unsigned ctr = atomic_inc(&_poolCtr);
 
-    if(ctr >= MAX_POOLSIZE){
-        printf("Pool exhausted! Exiting...\n");
-        exit(27);
-    }
+	if (ctr >= MAX_POOLSIZE) {
+		printf("Pool exhausted! Exiting...\n");
+		exit(27);
+	}
 
-    uintptr_t start = (uintptr_t) _pool[ctr - 1];
-
-	first = (struct GNode*) start;
-
-    start = start + sizeof(struct GNode);
-
-	first->a = (struct node*) start;
-
-    start = start + (sizeof(struct node) * __PREALLOCGNODES);
-
-    first->b = (void **)(start);
+	first = &_pool[ctr - 1];
 
 #else
 
-    uintptr_t start = (uintptr_t) calloc (sizeof(struct GNode) + (sizeof(struct node) * (max_node)) +  (sizeof(uintptr_t) * (max_node)), sizeof(char));
-    
-	first = (struct GNode*) start;
+	uintptr_t start = (uintptr_t)calloc(sizeof(struct GNode) + (sizeof(struct node) * (max_node)) +  (sizeof(uintptr_t) * (max_node)), sizeof(char));
 
-    start = start + sizeof(struct GNode);
+	first = (struct GNode*)start;
 
-    first->a = (struct node*) start;
+	start = start + sizeof(struct GNode);
 
-    start = start + (sizeof(struct node) * max_node);
+	first->a = (struct node*)start;
 
-    first->b = (void **)(start);
+	start = start + (sizeof(struct node) * max_node);
+
+	first->b = (uintptr_t*)(start);
 
 #endif
 
@@ -315,7 +277,7 @@ void *init_node(int max_node)
 	return first;
 }
 
-void *init_leaf(int max_node)
+struct GNode *init_leaf(int max_node)
 {
 	struct GNode *first = init_node(max_node);
 
@@ -332,13 +294,15 @@ void out(void *val)
 
 void printStat(struct global *universe)
 {
-	printf("\nNode Count:%d, Node Count(MAX): %d, Rebalance (Insert) Done: %d, Rebalance (Delete) Done: %d\n",
-	       universe->nodecnt, universe->maxcnt, universe->rebalance_done_ins, universe->rebalance_done_del);
+#ifdef __STATS
+	printf("\nNode Count:%d, Node Count(MAX): %d\n", universe->nodecnt, universe->maxcnt);
+	printf("\nRebalance (Insert) Done: %d, Rebalance (Delete) Done: %d\n",
+	        universe->rebalance_done_ins, universe->rebalance_done_del);
 	printf("Insert Count:%d, Delete Count:%d, Failed Insert:%d, Failed Delete:%d \n",
 	       universe->count_ins, universe->count_del, universe->failed_ins, universe->failed_del);
-
+#endif
 #ifdef __PREALLOCGNODES
-	printf("Used nodepool: %d\n", *_poolCtr);
+	printf("Used nodepool: %d\n", _poolCtr);
 #endif
 
 #ifdef __WAIT_COUNT
@@ -429,7 +393,7 @@ struct GNode *smart_btree_search_lo(struct GNode *start, _NODETYPE val, int max_
 	while (!start->isleaf) {
 		p = start->a;
 		void *base = p;
-		void **link = start->b;
+		uintptr_t *link = start->b;
 		bits = 0;
 		depth = 0;
 		//hop++;
@@ -451,7 +415,7 @@ struct GNode *smart_btree_search_lo(struct GNode *start, _NODETYPE val, int max_
 			start = start->sibling;
 		} else {
 			if (link[bits])
-				start = link[bits];
+				start = (struct GNode*) link[bits];
 			else
 				return start;
 		}
@@ -460,16 +424,16 @@ struct GNode *smart_btree_search_lo(struct GNode *start, _NODETYPE val, int max_
 	return start;
 }
 
-int scannode(_NODETYPE key, void **temp, int max_depth)
+int scannode(_NODETYPE key, uintptr_t *temp, int max_depth)
 {
 	unsigned rev;
-	struct GNode *A = *temp;
+	struct GNode *A = (struct GNode*) *temp;
 	int bits = 0;
 	int depth = 0;
 
 	struct node *p = A->a;
 	void *base = p;
-	void **link = A->b;
+	uintptr_t *link = A->b;
 
 	if ((rev = A->rev) & 1) {
 		*temp = 0; return 0;
@@ -491,20 +455,16 @@ int scannode(_NODETYPE key, void **temp, int max_depth)
 
 	/* Follow next_right if high_key is less than searched value*/
 	if (A->high_key > 0 && A->high_key <= key) {
-		*temp = A->sibling;
-
+		*temp = (uintptr_t) A->sibling;
 		if (A->rev - rev) {
 			*temp = 0; return 0;
 		}
-
 		return 1;
 	} else {
 		*temp = link[bits];
-
 		if (A->rev - rev) {
 			*temp = 0; return 0;
 		}
-
 		return 0;
 	}
 }
@@ -514,7 +474,7 @@ struct GNode *move_right_old(_NODETYPE key, struct GNode *t, int max_depth)
 	struct GNode *current = t;
 
 	if (current->high_key > 0) {
-		while (scannode(key, (void **)&t, max_depth)) {
+		while (scannode(key, (uintptr_t*)&t, max_depth)) {
 			gbst_lock(&t->lock);
 			gbst_unlock(&current->lock);
 			current = t;
@@ -548,7 +508,7 @@ struct GNode *smart_scannode_lo(struct GNode *start, _NODETYPE val, int max_dept
 	while (start && !start->isleaf) {
 		p = start->a;
 		void *base = p;
-		void **link = start->b;
+		uintptr_t *link = start->b;
 		bits = 0;
 		depth = 0;
 
@@ -570,7 +530,7 @@ struct GNode *smart_scannode_lo(struct GNode *start, _NODETYPE val, int max_dept
 		} else {
 			if (link[bits]) {
 				push(stk, start);
-				start = link[bits];
+				start = (struct GNode*) link[bits];
 			} else {
 				return start;
 			}
@@ -602,7 +562,7 @@ struct node *detailed_node_search(struct node *p, void *base, _NODETYPE val, int
 	return last_node;
 }
 
-void smart_fill_val_parent_lo(struct node *p, void *base, _NODETYPE *buf, void **link, void **linkbuf, int l, int r, int rmax, unsigned max_depth)
+void smart_fill_val_parent_lo(struct node *p, void *base, _NODETYPE *buf, uintptr_t *link, uintptr_t *linkbuf, int l, int r, int rmax, unsigned max_depth)
 {
 	unsigned mid = 0;
 	_NODETYPE val;
@@ -615,7 +575,7 @@ void smart_fill_val_parent_lo(struct node *p, void *base, _NODETYPE *buf, void *
 	mid = ((unsigned int)l + (unsigned int)r) >> 1;
 
 	val = buf[mid];
-	child = linkbuf[mid];
+	child = (struct GNode*) linkbuf[mid];
 
 	struct node *temp = detailed_node_search(p, p, val, &origin_bits, &depth);
 
@@ -623,7 +583,7 @@ void smart_fill_val_parent_lo(struct node *p, void *base, _NODETYPE *buf, void *
 	struct node *rn = right(temp, base);
 
 	if (!ln || !rn) {
-		report_all(base);
+		report_all((struct node *) base);
 		printf("Failed filling in rebalance (parent): %d (%d)\n", val, rmax);
 		print_int_array(buf, rmax);
 		exit(0);
@@ -654,19 +614,17 @@ void smart_fill_val_parent_lo(struct node *p, void *base, _NODETYPE *buf, void *
 
 	//Place the links
 	link[moved_bits] = link[origin_bits];
-	link[NEW_bits] = child;
+	link[NEW_bits] = (uintptr_t) child;
 
 	smart_fill_val_parent_lo(p, base, buf, link, linkbuf, l, mid - 1, rmax, max_depth);
 	smart_fill_val_parent_lo(p, base, buf, link, linkbuf, mid + 1, r, rmax, max_depth);
 }
 
 
-void fill_linkbuf(void **link, void **linkbuf, unsigned maxlink, unsigned *counter)
+void fill_linkbuf(uintptr_t *link, uintptr_t *linkbuf, unsigned maxlink, unsigned *counter)
 {
 	unsigned i = 0;
-
 	*counter = 0;
-
 	for (i = 0; i < maxlink; i++) {
 		if (link[i] != 0) {
 			linkbuf[(*counter)] = link[i];
@@ -676,7 +634,7 @@ void fill_linkbuf(void **link, void **linkbuf, unsigned maxlink, unsigned *count
 }
 
 
-void smart_fill_val_parent(struct node *p, void *base, _NODETYPE *buf, void **b, void **buflink, int l, int r, int rmax)
+void smart_fill_val_parent(struct node *p, void *base, _NODETYPE *buf, uintptr_t *b, uintptr_t *buflink, int l, int r, int rmax)
 {
 	unsigned mid = 0;
 
@@ -723,7 +681,7 @@ void smart_fill_val_lo(struct node *p, void *base, _NODETYPE *buf, int l, int r,
 	struct node *rn = right(temp, base);
 
 	if (!ln || !rn) {
-		report_all(base);
+		report_all((struct node *)	base);
 		printf("Failed filling in rebalance (leaf):%d\n", val);
 		print_int_array(buf, rmax);
 		exit(0);
@@ -742,7 +700,7 @@ void smart_fill_val_lo(struct node *p, void *base, _NODETYPE *buf, int l, int r,
 	smart_fill_val_lo(p, base, buf, mid + 1, r, rmax);
 }
 
-void fill_buf_parent(struct node *p, void *base, _NODETYPE *array, void **linkarray, void **links, unsigned *counter)
+void fill_buf_parent(struct node *p, void *base, _NODETYPE *array, uintptr_t *linkarray, uintptr_t *links, unsigned *counter)
 {
 	if (p && p->value != EMPTY) {
 		fill_buf_parent(left(p, base), base, array, linkarray, links, counter);
@@ -781,8 +739,6 @@ void fill_buf_lo(struct node *p, void *base, _NODETYPE *array, unsigned *counter
 int deleteNode_lo(struct global *universe, _NODETYPE val)
 {
 	int success;
-
-
 	success = 1;
 
 	DEBUG_PRINT("Deleting: %d", val);
@@ -802,20 +758,23 @@ int deleteNode_lo(struct global *universe, _NODETYPE val)
 
 		if (val == temp->value) {
 			temp->value = (temp->value | 1 << 31);
+#ifdef __STATS
 			atomic_inc(&start->deleted_node);
+#endif
 		} else {
 			success = 0;
 		}
 
 		gbst_unlock(&start->lock);
 	}
-
+#ifdef __STATS
 	if (success) {
 		atomic_dec(&universe->nodecnt);
 		atomic_inc(&universe->count_del);
 	} else {
 		atomic_inc(&universe->failed_del);
 	}
+#endif
 
 #ifdef DEBUG
 	if (success)
@@ -839,7 +798,7 @@ void *getData_lo(struct global *universe, _NODETYPE val)
 
 	if (temp)
 		if (temp->value == val)
-			return dt->b[0];
+			return (void*) dt->b[0];
 
 	return 0;
 }
@@ -882,86 +841,101 @@ void smart_fill_val_inc(struct node *p, void *base, _NODETYPE *buf, int l, int r
 }
 
 
-int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *depth, int max_depth, char *done, _NODETYPE val)
+int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *depth, int max_depth, _NODETYPE* success, _NODETYPE val)
 {
-	int c = 0;
-
 	if (!p) {
-		gbst_unlock(&current->lock);
-		return 0;
+		//printf("no space %d\n", current->count_node);
+		return 1;
 	}
 
 	if (p->value == EMPTY) {
 		p->value = val;
 		current->count_node++;
+		(*success) = val;
 
-        //This is the last level, see if we need rebalance
-		if (right(p, base) == NULL) (*done) = 1;
-		return 1;
+		DEBUG_PRINT( "done! %d\n", current->count_node);
+		return 0;
 	}
 
 	if (val == _val(p->value)) {
-		//printf( "exists!\n");
-		gbst_unlock(&current->lock);
+		DEBUG_PRINT( "exists!\n");
+		(*success) = val;
 		return 0;
 	} else {
+
+		int ret = 0;
+
 		if (val < _val(p->value)) {
-			c += smart_rec_insert(current, left(p, base), base, depth, max_depth, done, val) + 1;
+			ret = smart_rec_insert(current, left(p, base), base, depth, max_depth, success, val);
 
-			if (*done) {
-				c += sum_node(right(p, base), base);
+			if (ret > 0) {
+				ret += sum_node(right(p, base), base);
+				ret ++;
 
 				(*depth)++;
 
-				float calc = ((float)(1 << *depth) - 1) * (1.0 - ((((float)*depth) / max_depth) * 0.6));
+				//float calc = ((float)(1 << *depth) - 1) * (1.0 - ((((float)*depth) / max_depth) * 0.6));
 
-				//float calc = ((1<<(*depth+1))-1) * 0.5;
+				int calc = (int)((1<<(*depth)) * 0.5) - 1;
 
-				if (c <= calc) {
-					//printf(" Need rebalance! \n");
+				if (ret - 1 < calc && *depth > 2) {
+					DEBUG_PRINT(" Need rebalance! %d %d %d\n", ret, calc, *depth);
 
 					unsigned count = 0;
-					_NODETYPE *buf = buf_content;
 
-					int max_node = (1 << (*depth + 1)) - 1;
-
-					memset(buf, 0, max_node * sizeof(_NODETYPE));
-
+#ifdef __PREALLOCGNODES
+					_NODETYPE buf[__PREALLOCGNODES];
+#else
+					int max_node = (1 << (*depth )) - 1;
+					_NODETYPE buf[max_node];
+#endif
 					fill_buf(p, base, buf, &count);
+
+					DEBUG_PRINT("Count: %d\n", count);
 
 					atomic_inc(&current->rev);
 
 					smart_fill_val_inc(p, base, buf, 0, count - 1);
 
 					atomic_inc(&current->rev);
+					
+					// Re-Insert
+					ret = smart_rec_insert(current, p, base, depth, max_depth, success, val);
 
-					*done = 0;
+					return 0;
+				} else {
+					return ret;
 				}
+			} else {
+				return ret;
 			}
-			return c;
 		} else {
-			c += smart_rec_insert(current, right(p, base), base, depth, max_depth, done, val) + 1;
+			ret = smart_rec_insert(current, right(p, base), base, depth, max_depth, success, val);
 
-			if (*done) {
-				c += sum_node(left(p, base), base);
+			if (ret > 0) {
+				ret += sum_node(left(p, base), base);
+				ret ++;
 
 				(*depth)++;
 
-				float calc = ((float)(1 << *depth) - 1) * (1.0 - ((((float)*depth) / max_depth) * 0.6));
+				//float calc = ((float)(1 << *depth) - 1) * (1.0 - ((((float)*depth) / max_depth) * 0.6));
 
-				//float calc = ((1<<(*depth+1))-1) * 0.5;
+				int calc = (int)((1<<(*depth)) * 0.5) - 1;
 
-				if (c <= calc) {
-					//printf(" Need rebalance! \n");
+				if (ret - 1 < calc && *depth > 2) {
+					DEBUG_PRINT(" Need rebalance! %d %d %d\n", ret, calc, *depth);
 
 					unsigned count = 0;
-					_NODETYPE *buf = buf_content;
 
-					int max_node = (1 << (*depth + 1)) - 1;
-
-					memset(buf, 0, max_node * sizeof(_NODETYPE));
-
+#ifdef __PREALLOCGNODES
+					_NODETYPE buf[__PREALLOCGNODES];
+#else
+					int max_node = (1 << (*depth)) - 1;
+					_NODETYPE buf[max_node];
+#endif
 					fill_buf(p, base, buf, &count);
+
+					DEBUG_PRINT("Count: %d\n", count);
 
 					atomic_inc(&current->rev);
 
@@ -969,34 +943,128 @@ int smart_rec_insert(struct GNode *current, struct node *p, void *base, int *dep
 
 					atomic_inc(&current->rev);
 
-					*done = 0;
+					// Re-Insert
+					ret = smart_rec_insert(current, p, base, depth, max_depth, success, val);
+
+					return 0;
+				} else {
+					return ret;
 				}
+			} else {
+				return ret;
 			}
-			return c;
 		}
 	}
 }
 
+void do_insert_leaf(struct GNode * current, int max_depth, _NODETYPE* success, const _NODETYPE key){
 
-int insert_par(struct global *universe, _NODETYPE key, void *data)
+	int tempdepth = 0;
+
+	DEBUG_PRINT("Insert %d\n", key);
+	smart_rec_insert(current, current->a, current->a, &tempdepth, max_depth, success, key);
+
+#ifdef DEBUG
+	if (!(*success==key)) {
+		DEBUG_PRINT("Fail leaf!\n");
+		exit(12);
+	}
+#endif
+
+}
+
+void do_insert_node(struct GNode * current, struct GNode * sibling, int max_depth, int max_node, _NODETYPE keyL, _NODETYPE keyR, _NODETYPE *buf, uintptr_t *buflink)
 {
-	struct GNode *prev = NULL, *current = NULL, *NEW = NULL, *old_leaf = NULL;
-
 	struct node *temp = 0, *templ = 0, *tempr = 0;
+	int origin_bits = 0, depth = 0;
+	unsigned count = 0, countlink = 0, mid = 0;
 
-	int reb = 0;
+	temp = detailed_node_search(current->a, current->a, keyR, &origin_bits, &depth);
 
-    int origin_bits, depth;
+	if (left(temp, current->a) == 0) { //REBALANCE
+		DEBUG_PRINT("Parent needs rebalance!\n");
+		memset(buf, 0, max_node * sizeof(_NODETYPE));
+		memset(buflink, 0, max_node * sizeof(void *));
 
-    _NODETYPE key2 = 0;
+		fill_buf_lo(current->a, current->a, buf, &count);
+
+		fill_linkbuf(current->b, buflink, max_node, &countlink);
+
+		atomic_inc(&current->rev);
+
+		memset(current->a, 0, max_node * sizeof(struct node));
+		memset(current->b, 0, max_node * sizeof(void *));
+
+		mid = ((unsigned int)count) >> 1;
+
+		current->a[0].value = buf[mid];
+		current->b[0] = buflink[mid];
+
+		smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, 0, mid - 1, count, max_depth);
+		smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, mid + 1, count, count, max_depth);
+
+		atomic_inc(&current->rev);
+
+		current->count_node = count * 2;
+	#ifdef __STATS
+		atomic_inc(&universe->rebalance_done_ins);
+	#endif
+		origin_bits = 0;
+		depth = 0;
+		temp = detailed_node_search(current->a, current->a, keyR, &origin_bits, &depth);
+
+#ifdef DEBUG
+		if (left(temp, current->a) == 0){
+			DEBUG_PRINT("Fail node\n");
+			exit(22);
+		}
+#endif
+	}
+
+	templ = left(temp, current->a);
+	tempr = right(temp, current->a);
+	depth++;
+
+	if (keyR < temp->value) {
+		temp->value = keyR;
+		templ->value = keyL;
+		tempr->value = keyR;
+	} else {
+		templ->value = temp->value; //Careful!
+		temp->value = keyR;
+		tempr->value = keyR;
+	}
+
+	current->count_node += 2;
+	origin_bits = (origin_bits << 1) + 1;
+
+	//Adjust the links
+	origin_bits = origin_bits << (max_depth - depth);
+
+	//Place the links
+	current->b[origin_bits] = (uintptr_t) sibling;
+
+}
+
+int insert_par(struct global *universe, const _NODETYPE key, void *data)
+{
+	struct GNode *current= 0, *sibling = 0;
+	struct GNode *oldCurrent = 0;
+	
+	_NODETYPE keyRNext = 0 , keyR = 0;
+	_NODETYPE keyLNext = 0, keyL = 0;
+	_NODETYPE success = 0;
 
 	int max_node = universe->max_node;
+	int max_depth = universe->max_depth;
 
-	unsigned count = 0, countlink = 0, mid = 0, split = 0;
-
-	_NODETYPE *buf = &buf_content[0];
-	void **buflink = (void **)&buflink_content[0];
-
+#ifdef __PREALLOCGNODES
+	_NODETYPE buf [__PREALLOCGNODES];
+	uintptr_t buflink [__PREALLOCGNODES];
+#else
+	_NODETYPE buf [max_node];
+	uintptr_t buflink [max_node];
+#endif
 	struct GNode **root = universe->root;
 
 	/* The tree does not exist yet.
@@ -1009,7 +1077,6 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 		if (*root == NULL) {
 			*root = init_leaf(max_node);
 			(*root)->a->value = key;
-			//(*root)->b[0] = data;
 			(*root)->count_node = 1;
 			gbst_unlock(&universe->lock);
 
@@ -1028,12 +1095,12 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 	current = *root;
 
 	while (!current->isleaf) {
-		prev = current;
-		if (!scannode(key, (void **)&current, universe->max_depth)) {
+		oldCurrent = current;
+		if (!scannode(key, (uintptr_t*)&current, max_depth)) {
 			if (!current)
-				current = prev;
+				current = oldCurrent;
 			else
-				push(&Nstack, prev);
+				push(&Nstack, oldCurrent);
 		}
 	}
 
@@ -1041,110 +1108,13 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 	current = move_right(key, current);
 
 	while (1) {
-		char tempdone = 0;
+		if (current->isleaf) { //LEAF INSERT
+			if(current->count_node >= universe->split_thres) {
+				//SPLIT LEAF NODE
+				DEBUG_PRINT("Split leaf\n");
 
-		reb = 0;
+				unsigned count = 0, split = 0;
 
-		if (current->isleaf) {
-
-			int tempdepth = 0;
-
-			int success = smart_rec_insert(current, current->a, current->a, &tempdepth, universe->max_depth, &tempdone, key);
-
-			if (!success)
-				return 0;
-
-		} else {
-			origin_bits = 0;
-			depth = 0;
-			temp = detailed_node_search(current->a, current->a, key, &origin_bits, &depth);
-			templ = left(temp, current->a);
-			tempr = right(temp, current->a);
-			depth++;
-
-			if (key < temp->value) {
-				temp->value = key;
-				templ->value = key2;
-				tempr->value = key;
-			} else {
-				templ->value = temp->value; //Careful!
-				temp->value = key;
-				tempr->value = key;
-			}
-
-			if (left(templ, current->a) == 0) reb = 1;
-			current->count_node += 2;
-			origin_bits = (origin_bits << 1) + 1;
-
-			//Adjust the links
-			origin_bits = origin_bits << (universe->max_depth - depth);
-
-			//Place the links
-			current->b[origin_bits] = NEW;
-		}
-
-		if (!tempdone && current->count_node < universe->split_thres) {
-			if (current->isleaf) {
-				if (reb) {
-					//fprintf( stderr, "Rebalance leaf\n");
-
-					count = 0;
-					memset(buf, 0, max_node * sizeof(_NODETYPE));
-
-					fill_buf(current->a, current->a, buf, &count);
-
-					atomic_inc(&current->rev);
-
-					memset(current->a, 0, max_node * sizeof(struct node));
-
-					smart_fill_val(current->a, current->a, buf, 0, count, count);
-
-					atomic_inc(&current->rev);
-
-
-					current->count_node = count;
-					current->deleted_node = 0;
-
-					atomic_inc(&universe->rebalance_done_ins);
-				}
-			} else {
-				if (reb) {
-					//printf("Parent needs rebalance!\n");
-
-					count = 0; countlink = 0; mid = 0;
-					memset(buf, 0, max_node * sizeof(_NODETYPE));
-					memset(buflink, 0, max_node * sizeof(void *));
-
-					fill_buf_lo(current->a, current->a, buf, &count);
-
-					fill_linkbuf(current->b, buflink, max_node, &countlink);
-
-					atomic_inc(&current->rev);
-
-					memset(current->a, 0, max_node * sizeof(struct node));
-					memset(current->b, 0, max_node * sizeof(void *));
-
-					mid = ((unsigned int)count) >> 1;
-
-					current->a[0].value = buf[mid];
-					current->b[0] = buflink[mid];
-
-					smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, 0, mid - 1, count, universe->max_depth);
-					smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, mid + 1, count, count, universe->max_depth);
-
-					atomic_inc(&current->rev);
-
-					current->count_node = count * 2;
-					atomic_inc(&universe->rebalance_done_ins);
-				}
-			}
-			gbst_unlock(&current->lock);
-			return 1;
-		} else { // split
-			if (current->isleaf) {
-				//fprintf(stderr, "Split leaf\n");
-
-				count = 0; split = 0;
 				memset(buf, 0, max_node * sizeof(_NODETYPE));
 
 				fill_buf(current->a, current->a, buf, &count);
@@ -1158,34 +1128,50 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 				smart_fill_val(current->a, current->a, buf, 0, split - 1, split);
 
 				// NEW Node
-				NEW = init_leaf(max_node);
-				atomic_inc(&NEW->rev);
+				sibling = init_leaf(max_node);
+				atomic_inc(&sibling->rev);
 
 				// Link the siblings
-				NEW->high_key = current->high_key;
-				NEW->sibling = current->sibling;
+				sibling->high_key = current->high_key;
+				sibling->sibling = current->sibling;
 
 				current->high_key = buf[split];
-				current->sibling = NEW;
+				current->sibling = sibling;
 
 				atomic_inc(&current->rev);
 
-				smart_fill_val(NEW->a, NEW->a, buf, split, count - 1, count);
+				smart_fill_val(sibling->a, sibling->a, buf, split, count - 1, count);
 
-				atomic_inc(&NEW->rev);
+				atomic_inc(&sibling->rev);
 
 				//Revise counts
 				current->count_node = split;
-				NEW->count_node = count - split;
+				sibling->count_node = count - split;
 
-				key = buf[split];
-				key2 = buf[0];
+				keyR = buf[split];
+				keyL = buf[0];
 
-				atomic_inc(&universe->rebalance_done_del);
-			} else {
-				//fprintf(stderr, "Split parent\n");
+				if(key >= current->high_key)
+					do_insert_leaf(current->sibling, max_depth, &success, key);
+				else
+					do_insert_leaf(current, max_depth, &success, key);
 
-				count = 0; countlink = 0; mid = 0; split = 0;
+			}else{
+
+				do_insert_leaf(current, max_depth, &success, key);
+
+				gbst_unlock(&current->lock);
+
+				return success;
+
+			}
+		} else { //NODE INSERT
+			unsigned count = 0, countlink = 0, mid = 0, split = 0;
+
+			if(current->count_node >= universe->split_thres) {
+				DEBUG_PRINT("Split parent\n");
+
+				struct GNode *oldSibling = sibling;
 
 				memset(buf, 0, max_node * sizeof(_NODETYPE));
 				memset(buflink, 0, max_node * sizeof(void *));
@@ -1196,7 +1182,7 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 				atomic_inc(&current->rev);
 
 				memset(current->a, 0, max_node * sizeof(struct node));
-				memset(current->b, 0, max_node * sizeof(void **));
+				memset(current->b, 0, max_node * sizeof(uintptr_t *));
 
 				split = (((unsigned int)count) >> 1);
 
@@ -1205,73 +1191,88 @@ int insert_par(struct global *universe, _NODETYPE key, void *data)
 				current->a[0].value = buf[mid];
 				current->b[0] = buflink[mid];
 
-				smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, 0, mid - 1, split, universe->max_depth);
-				smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, mid + 1, split, split, universe->max_depth);
+				smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, 0, mid - 1, split, max_depth);
+				smart_fill_val_parent_lo(current->a, current->a, buf, current->b, buflink, mid + 1, split, split, max_depth);
 
 				// NEW Node
-				NEW = init_node(max_node);
-				atomic_inc(&NEW->rev);
+				sibling = init_node(max_node);
+				atomic_inc(&sibling->rev);
 
 				// Link the siblings
-				NEW->high_key = current->high_key;
-				NEW->sibling = current->sibling;
+				sibling->high_key = current->high_key;
+				sibling->sibling = current->sibling;
 
 				current->high_key = buf[split];
-				current->sibling = NEW;
+				current->sibling = sibling;
 
 				atomic_inc(&current->rev);
 
 				mid = (((unsigned int)split) >> 1) + split;
 
-				NEW->a->value = buf[mid];
-				NEW->b[0] = buflink[mid];
+				sibling->a->value = buf[mid];
+				sibling->b[0] = buflink[mid];
 
-				smart_fill_val_parent_lo(NEW->a, NEW->a, buf, NEW->b, buflink, split, mid - 1, count, universe->max_depth);
-				smart_fill_val_parent_lo(NEW->a, NEW->a, buf, NEW->b, buflink, mid + 1, count, count, universe->max_depth);
+				smart_fill_val_parent_lo(sibling->a, sibling->a, buf, sibling->b, buflink, split, mid - 1, count, max_depth);
+				smart_fill_val_parent_lo(sibling->a, sibling->a, buf, sibling->b, buflink, mid + 1, count, count, max_depth);
 
-				atomic_inc(&NEW->rev);
+				atomic_inc(&sibling->rev);
 
 				//Revise counts
 				current->count_node = split * 2;
-				NEW->count_node = (count - split) * 2;
+				sibling->count_node = (count - split) * 2;
 
-				key = buf[split];
-				key2 = buf[0];
-
+				keyRNext = buf[split];
+				keyLNext = buf[0];
+#ifdef __STATS
 				atomic_inc(&universe->rebalance_done_del);
-			}
+#endif
+				if(keyR >= current->high_key)
+					do_insert_node(current->sibling, oldSibling,  max_depth,  max_node, keyL, keyR, buf, buflink);
+				else
+					do_insert_node(current, oldSibling,  max_depth,  max_node, keyL, keyR, buf, buflink);
 
-			old_leaf = current;
-
-			//Now we have to create a NEW root, restrict only to 1 thread
-			if (Nstack.num == 0) {
-				struct GNode *parent = init_node(max_node);
-				parent->a->value = key;
-				parent->b[0] = current;
-
-				//Left&right insert
-				templ = left(parent->a, parent->a);
-				tempr = right(parent->a, parent->a);
-
-				templ->value = key2; //Careful!
-				tempr->value = key;
-
-				parent->b[1 << (universe->max_depth - 2)] = NEW;
-
-				parent->count_node = 3;
-				*root = parent;
-
-				gbst_unlock(&old_leaf->lock);
-				return 1;
+				keyR = keyRNext;
+				keyL = keyLNext;
 			} else {
-				current = pop(&Nstack);
 
-				gbst_lock(&current->lock);
-
-				current = move_right(key, current);
-
-				gbst_unlock(&old_leaf->lock);
+				do_insert_node(current, sibling,  max_depth,  max_node, keyL, keyR, buf, buflink);
+				gbst_unlock(&current->lock);
+				return success;			
 			}
+		}
+
+		//Now we have to create a NEW root, restrict only to 1 thread
+		if (Nstack.num == 0) {
+			struct node *templ = 0, *tempr = 0;
+			struct GNode *parent = init_node(max_node);
+			parent->a->value = keyR;
+			parent->b[0] = (uintptr_t) current;
+
+			//Left&right insert
+			templ = left(parent->a, parent->a);
+			tempr = right(parent->a, parent->a);
+
+			templ->value = keyL; //Careful!
+			tempr->value = keyR;
+
+			parent->b[1 << (max_depth - 2)] = (uintptr_t) sibling;
+
+			parent->count_node = 3;
+			*root = parent;
+
+			gbst_unlock(&current->lock);
+			return success;
+		} else {
+	
+			oldCurrent = current;
+		
+			current = pop(&Nstack);
+
+			gbst_lock(&current->lock);
+
+			current = move_right(keyR, current);
+
+			gbst_unlock(&oldCurrent->lock);
 		}
 	}
 	return 0;
@@ -1287,40 +1288,36 @@ void initial_add(struct global *universe, int num, int range)
 		j = (rand() % range) + 1;
 		i += insert_par(universe, j, 0);
 	}
-
+#ifdef __STATS
 	universe->nodecnt = i;
 	universe->maxcnt = i;
+#endif
 }
 
 
 greenbst_t *greenbst_alloc(int UB)
 {
 	/* Allocate the universe */
-	greenbst_t *universe = malloc(sizeof(struct global));
+	greenbst_t *universe = (greenbst_t *) malloc(sizeof(struct global));
 
-	universe->root = 0;
+	universe->root = NULL;
 
+#ifdef __STATS
 	universe->failed_ins = 0;
 	universe->failed_del = 0;
 	universe->count_ins = 0;
 	universe->count_del = 0;
 	universe->rebalance_done_ins = 0;
 	universe->rebalance_done_del = 0;
-
 	universe->nodecnt = 0;                                  // Initial node count
 	universe->maxcnt = 0;                                   // Initial MAXnode count
+#endif
 
 	universe->max_depth = ceil(log(UB) / log(2));           // Maximum tree depth based on UB
 
 	universe->max_node = (1 << universe->max_depth) - 1;    // Maximum node for the tree
 
-	universe->split_thres = (universe->max_node + 1) >> 1;
-
-
-#ifdef __PREALLOCGNODES
-	//Init the repo pointers
-	_poolCtr = &poolCounter;
-#endif
+	universe->split_thres = ((universe->max_node + 1) >> 1) - 1;
 
 	printf("Global start!\n");
 
@@ -1331,7 +1328,7 @@ greenbst_t *greenbst_alloc(int UB)
 	if (!_map)
 		init_tree_map(universe, universe->max_node, universe->max_depth);
 
-	universe->root = calloc(1, sizeof(struct GNode *));
+	universe->root = (struct GNode **) calloc(1, sizeof(struct GNode *));
 
 	unsigned size = 0;
 	size += (sizeof(struct GNode));
@@ -1390,11 +1387,10 @@ struct map *_map = NULL;
 struct map mapcontent[__PREALLOCGNODES];
 
 //Pool
-char _pool [MAX_POOLSIZE][sizeof(struct GNode) + (sizeof(struct node) * (__PREALLOCGNODES + 1)) +  (sizeof(uintptr_t) * (__PREALLOCGNODES + 1))];
+struct GNode _pool [MAX_POOLSIZE];
 
 //Counter
-unsigned *_poolCtr;
-unsigned poolCounter = 0;
+unsigned _poolCtr = 0;
 
 #else
 

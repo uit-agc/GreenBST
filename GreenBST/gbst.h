@@ -89,7 +89,7 @@ static inline int pthread_spin_lock_w(gbst_lock_t *lock)
 */
 
 
-struct map { size_t left; size_t right; } __attribute__ ((aligned));
+struct map { size_t left; size_t right; };
 
 struct node {
 	_NODETYPE value;
@@ -99,26 +99,32 @@ struct node {
 struct GNode {
 	unsigned	rev;
 	_NODETYPE	high_key;
-	struct GNode *	sibling;
-	char		isleaf;
+	struct GNode *sibling;
+	unsigned	isleaf;
 
 	gbst_lock_t	lock;           //Tree lock
 	unsigned	count_node;     //sub-tree node count
+#ifdef __STATS
 	unsigned	deleted_node;
-
-	struct node *	a;
-	void **		b;
+#endif
+#ifdef __PREALLOCGNODES
+	struct node	a[__PREALLOCGNODES];
+	uintptr_t 	b[__PREALLOCGNODES];
+#else
+	struct node	*a;
+	uintptr_t 	*b;
+#endif
 };
 
 
 struct global {
 	int		max_node;
 	int		max_depth;
+	int		split_thres;
 
+#ifdef __STATS
 	int		nodecnt;
 	int		maxcnt;
-
-	int		split_thres;
 
 	int		count_ins;
 	int		count_del;
@@ -128,11 +134,11 @@ struct global {
 
 	int		rebalance_done_ins;
 	int		rebalance_done_del;
-
+#endif
 	gbst_lock_t	lock;
 
 	struct GNode ** root;
-} __attribute__ ((aligned));
+};
 
 
 
@@ -140,13 +146,13 @@ struct global {
 //--STACK START
 struct stack {
 	int		num;
-	struct GNode *	parent[MAX_STACK] __attribute__ ((aligned));
-} __attribute__ ((aligned));
+	struct GNode *	parent[MAX_STACK];
+};
 
 static inline
 int push(struct stack *stk, void *parent)
 {
-	stk->parent[stk->num++] = parent;
+	stk->parent[stk->num++] = (struct GNode *)parent;
 	return 0;
 }
 static inline
@@ -172,11 +178,10 @@ extern struct map *_map;
 extern struct map mapcontent[__PREALLOCGNODES];
 
 //Pool
-extern char _pool [MAX_POOLSIZE][sizeof(struct GNode) + (sizeof(struct node) * (__PREALLOCGNODES + 1)) +  (sizeof(uintptr_t) * (__PREALLOCGNODES + 1))];
+extern struct GNode _pool [MAX_POOLSIZE];
 
 //Counter
-extern unsigned poolCounter;
-extern unsigned *_poolCtr;
+extern unsigned _poolCtr;
 
 #endif
 
@@ -212,41 +217,41 @@ int get_idx(void* p, void* base, size_t nodesize)
 
 /* Below is left and right WITHOUT branching. Careful with the node size. */
 
-#define left(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].left) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].left) >> (_NODEWIDTH-1)))
-#define right(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].right) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].right) >> (_NODEWIDTH-1)))
+//#define left(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].left) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].left) >> (_NODEWIDTH-1)))
+//#define right(p,base) (void*) (((uintptr_t)base +_map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].right) * !((SIZE_MAX + _map[((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT].right) >> (_NODEWIDTH-1)))
 
 /* Below is left and right WITH branching. Careful with the node size. */
 
 //#define left(p,base) (void*)(_map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].left?((uintptr_t)base + _map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].left):0)
 //#define right(p,base) (void*)(_map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].right?((uintptr_t)base + _map[(int)(((uintptr_t)p - (uintptr_t)base)>>_NODESHIFT)].right):0)
 
-/*
+
 static inline
-void *left(void *p, void *base)
+struct node *left(void *p, void *base)
 {
 	int idx = (int)(((size_t)p - (size_t)base) >> _NODESHIFT);
 
 	//fprintf(stderr, "going left from index %d, to %ld (%d)\n", idx, _map[idx].left + base, _map[idx].left );
 
 	if (_map[idx].left != 0)
-		return base + _map[idx].left;
+		return (struct node *) ((uintptr_t) base + (uintptr_t) _map[idx].left);
 	else
 		return 0;
 }
 
 static inline
-void *right(void *p, void *base)
+struct node *right(void *p, void *base)
 {
 	int idx = (int)(((size_t)p - (size_t)base) >> _NODESHIFT);
 
 	//fprintf(stderr, "going right from index %d, to %ld (%d)\n", idx, _map[idx].right + base, _map[idx].right );
 
 	if (_map[idx].right != 0)
-		return base + _map[idx].right;
+		return (struct node *) ((uintptr_t) base + (uintptr_t) _map[idx].right);
 	else
 		return 0;
 }
-*/
+
 typedef struct global greenbst_t;
 
 greenbst_t *greenbst_alloc(int t);

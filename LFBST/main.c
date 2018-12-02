@@ -146,22 +146,20 @@ int main(int argc, char **argv)
 	
 	global_seed = rand();
 
-	/* Populate set */
-	printf("Adding %d entries to set\n",i);
-	j = 0;
-	while (j < i) {
-		val = rand_range_re(&global_seed, r);
-		if (insert(&data[0], val)) {
-			j++;
-		}
+	val = rand_range_re(&global_seed, r);
+	insert(&data[0], val);
+
+	if(i > 0) {
+		/* Populate set */
+		printf("Adding %d entries to set\n",i);
+		start_prefill(data, r, u, n, i);
 	}
 
 	start_benchmark(data, r, u, n, 0);
 
 #else
-
+        testseq(data, 1);
 	testpar(data, u, n, 1);
-	testseq(data, 1);
 
 #endif
 

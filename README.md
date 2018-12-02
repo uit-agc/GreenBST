@@ -48,7 +48,7 @@ https://github.com/anataraja/lfbst
 
 * Aravind Natarajan and Neeraj Mittal. Fast concurrent lock-free binary search trees. In Proc. 19th ACM SIGPLAN Symposium on Principles and Practice of Parallel Programming, PPoPP ’14, pages 317–328, 2014.
 
-**6. RCU-based concurrent search tree (Citrus)**
+**5. RCU-based concurrent search tree (Citrus)**
 
 Citrus is a concurrent binary search tree that utilizes Read-Copy-Update (RCU) synchronization and fine-grained locking for synchronization among updaters. Citrus contain operation is wait-free. This concurrent search tree is locality-oblivious.
 
@@ -57,11 +57,25 @@ https://bitbucket.org/mayaarl/citrus
 
 * Maya Arbel and Hagit Attiya. Concurrent updates with rcu: Search tree as an example. In Proc. 2014 ACM Symposium on Principles of Distributed Computing, PODC ’14, pages 196–205. ACM, 2014.
 
-**7. Portably scalable concurrent search tree (BSTTK)**
+**6. Portably scalable concurrent search tree (BSTTK)**
 
 BST-TK is the state-of- the-art lock-based concurrent search tree based on the asynchronous concurrency paradigm. BST-TK is portably scalable, namely it scales across different types of hardware platforms. BSTTK is a locality-oblivious tree.
 
 *BSTTK official repository:*
 https://github.com/LPD-EPFL/ASCYLIB
 
-* Tudor David, Rachid Guerraoui, and Vasileios Trigonakis. Asynchronized concurrency: The secret to scaling concurrent search data structures. In Proc. 12th Intl. Conf. on Architectural Support for Programming Languages and Operating Systems, ASPLOS’15, pages 631–644, 2015
+* Tudor David, Rachid Guerraoui, and Vasileios Trigonakis. Asynchronized concurrency: The secret to scaling concurrent search data structures. In Proc. 12th Intl. Conf. on Architectural Support for Programming Languages and Operating Systems, ASPLOS’15, pages 631–644, 2015.
+
+**7. Lock-free ABTREE**
+
+*ABTREE official repository:*
+https://bitbucket.org/trbot86/setbench/src/master/ds/brown_ext_abtree_lf
+
+* Trevor Brown. A Template for Implementing Fast Lock-free Trees Using HTM. In Proceedings of the ACM Symposium on Principles of Distributed Computing (PODC '17). ACM, New York, NY, USA, 293-302, 2017.
+
+**8. Lock-free BWTREE**
+
+*BWTREE official repository:*
+https://github.com/wangziqi2013/BwTree/tree/master/src
+
+* Ziqi Wang, Andrew Pavlo, Hyeontaek Lim, Viktor Leis, Huanchen Zhang, Michael Kaminsky, and David G. Andersen. Building a Bw-Tree Takes More Than Just Buzz Words. In Proceedings of the 2018 International Conference on Management of Data (SIGMOD '18). ACM, New York, NY, USA, 473-488, 2018.

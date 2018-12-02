@@ -33,8 +33,8 @@
 #include "bench.h"
 
 
-#ifndef __arm__
-#define __THREAD_PINNING 0
+#if !defined(__APPLE__) && !defined(__MACH__)
+#define __THREAD_PINNING 1
 #endif
 
 #if defined( __SIM)
@@ -42,14 +42,19 @@
 #include "m5op.h"
 #include "m5_mem.h"
 #define __THREAD_PINNING 0
-#define MAXITER 10000
+#define MAX_ITER 10000
 
 #else
 
-#define MAXITER 5000000
+#define MAX_ITER 5000000
 
 #endif
 
+// MAXITER
+int MAXITER;
+
+// Flag for stop condition
+volatile char stopFlag;
 
 #ifdef __USEPROF
 #include "../common/papicounters.h"
@@ -106,11 +111,10 @@ void prepare_randintp(float ins, float del) {
 /* Struct for data input/output per-thread */
 struct arg_bench {
     unsigned rank;
-#ifndef __APPLE__
 #if (__THREAD_PINNING == 1)
-	cpu_set_t *cpuset;
+    unsigned pinOrder;
 #endif
-#endif
+    int runType;
 	int size;
     unsigned seed;
     unsigned seed2;
@@ -139,6 +143,7 @@ void* do_bench (void* arguments)
     int b_size;
     long cont = 0;
     long max_iter = 0;
+    int runType = 0;
 
     struct timeval start, end;
     struct arg_bench *args;
@@ -149,18 +154,19 @@ void* do_bench (void* arguments)
     max_iter = args->max_iter;
     b_size = args->size;
     pool = args->pool;
+    runType = args->runType;
     
-    //fprintf(stderr, "seed1:%d, seed2:%d, iter: %ld\n", args->seed, args->seed2, max_iter);
-
-#if defined GBST && !defined __PREALLOCGNODES
-    init_threads(root->max_node);
+#if defined BBST && !defined __PREALLOCGNODES
+    init_threads(root->max_node, root->nb_thread);
 #endif
 
 #ifndef __APPLE__
 #if (__THREAD_PINNING == 1)
     pthread_t current_thread = pthread_self();
-
-    fprintf(stdout, "Pinning to core %d... %s\n", args->rank, pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), args->cpuset)==0?"Success":"Failed");
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(args->pinOrder, &cpuset);
+    fprintf(stdout, "Pinning to core %d... %s\n", args->pinOrder, pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)==0?"Success":"Failed");
 #endif
 #endif
 
@@ -179,22 +185,34 @@ void* do_bench (void* arguments)
 	urcu_register(args->rank);
 #endif
 
+#ifdef BWTREE
+	root->AssignGCID(args->rank);
+#endif
+
+#ifdef ABTREE
+	const int threadID = args->rank;
+#endif
+
 #ifdef __USEPROF
     struct localcounters *profcnt;
-    profcnt = prof_prepare(0);
-	thread_local_values[args->rank] = profcnt->values;
+
+    if(runType == 1) {
+        profcnt = prof_prepare(0);
+        thread_local_values[args->rank] = profcnt->values;
+    }
 #endif
 
     pthread_barrier_wait(&bench_barrier);
 
     gettimeofday(&start, NULL);
 
+    if(runType == 1) {
 #ifdef __USEPROF
         prof_start(profcnt);
 #endif
-
+    }
     /* Check the flag once in a while to see when to quit. */
-    while(cont < max_iter){
+    while(cont < max_iter && !stopFlag){
 
         /*---------------------------*/
 
@@ -223,16 +241,16 @@ void* do_bench (void* arguments)
         
     }
 
+    if(runType == 1){
 #ifdef __USEPROF
         prof_end(profcnt);
 #endif
+        // Instruct other threads to stop
+        stopFlag = 1;
+    }
 
     gettimeofday(&end, NULL);
 
-//#ifdef __USEPROF
-//        prof_print(profcnt);
-//#endif
-    
     args->counter_ins = counter[0];
     args->counter_del = counter[1];
     args->counter_search = counter[2];
@@ -242,16 +260,20 @@ void* do_bench (void* arguments)
     args->counter_search_s = success[2];
 	
 #ifdef __USEPROF
-    args->timer = (profcnt->end_time - profcnt->start_time)/1000000;
+    if(runType == 1){
+        args->timer = (profcnt->end_time - profcnt->start_time)/1000000;
+    }else{
+        args->timer = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
+    }
 #else
-	args->timer = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
+    args->timer = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
 #endif
 
-	pthread_exit((void*) arguments);
+    pthread_exit((void*) arguments);
 }
 
 
-int benchmark(data_t root, int threads, int size, float ins, float del){
+int benchmark(data_t root, int threads, int key_range, float ins, float del, int initial, int isSilent){
     pthread_t *pid;
     long *inputs;
     int *ops;
@@ -264,43 +286,45 @@ int benchmark(data_t root, int threads, int size, float ins, float del){
 
     struct arg_bench result;
 
+    // Ensure maximum iteration got filled up depending on the type of operation
+    if(initial > 0)
+        MAXITER = initial;
+    else
+        MAXITER = MAX_ITER;
+
+    // Init the stop flag
+    stopFlag = 0;
+
     args = (struct arg_bench*) calloc(threads, sizeof(struct arg_bench));
 
-    inputs = (long*) calloc(size, sizeof(long));
-    ops = (int*) calloc(size, sizeof(int));
+    inputs = (long*) calloc(key_range, sizeof(long));
+    ops = (int*) calloc(key_range, sizeof(int));
 
     prepare_randintp(ins, del);
 
 #if (__THREAD_PINNING == 1)
     long ncores = sysconf( _SC_NPROCESSORS_ONLN );
-    int midcores = (int)ncores/2;
+    int midcores = (int)ncores/4;
 
-	printf("Available cores: %d\n", ncores);
-	
-	cpu_set_t cpuset;
-	
-	CPU_ZERO(&cpuset);
-
-	for (i = 0; i < ncores; i++)
-        CPU_SET(i, &cpuset);
+    printf("Available cores: %ld\n", ncores);
 #endif
 
     for(i = 0; i< threads; i++){
         arg = &args[i];
 #if (__THREAD_PINNING == 1)
-		arg->cpuset = &cpuset;
-        if(threads > midcores && threads < ncores){
-            if(i >= (threads/2))
-                arg->rank = i - (threads/2) + midcores;
-            else
-                arg->rank = i;
-        }else
-            arg->rank = i;
-#else
-	arg->rank = i;
+        if(i > midcores -1 && threads < ncores)
+            arg->pinOrder = i + midcores;
+        else
+            arg->pinOrder = i;
 #endif
+	arg->rank = i;
+        // For prefill mode, use zero
+        if(initial > 0)
+            arg->runType = 0;
+        else
+            arg->runType = 1;
 
-        arg->size = size;
+        arg->size = key_range;
 
         arg->update = ins + del;
         arg->seed = rand();
@@ -341,27 +365,31 @@ int benchmark(data_t root, int threads, int size, float ins, float del){
 #endif
 
 #ifdef __USEPROF
-	struct localcounters *profcnt;
-	profcnt = prof_prepare(1);
-	thread_local_values = (long long **) calloc(threads, sizeof(long long**));
+    struct localcounters *profcnt;
+    if(initial == 0) {
+        profcnt = prof_prepare(1);
+        thread_local_values = (long long **) calloc(threads, sizeof(long long**));
+    }
 #endif
 
     pthread_barrier_init(&bench_barrier,NULL,threads);
 
-    fprintf(stderr, "\nStarting benchmark...\n");    
+    if(initial == 0) {
+        fprintf(stderr, "\nStarting benchmark...\n");
+    }else{
+        fprintf(stderr, "\nInitial insert with %d iterations and %f %% insert proportion and %d threads\n", initial, ins, threads);
+    }
 
-#ifdef __USEPROF
-//    prof_start(profcnt);
-#endif
-
+    if(initial == 0) {
 #ifdef __ENERGY
-      ENERGY_START();
+        ENERGY_START();
 #endif
 
 #ifdef __SIM
-map_m5_mem();
-m5_dumpreset_stats(0,0);
+        map_m5_mem();
+        m5_dumpreset_stats(0,0);
 #endif
+    }
 
     for (i = 0; i<threads; i++)
         pthread_create (&pid[i], &attr, &do_bench, &args[i]);
@@ -369,22 +397,22 @@ m5_dumpreset_stats(0,0);
     for (i = 0; i<threads; i++)
         pthread_join (pid[i], NULL);
 
+    if(initial == 0) {
 #ifdef __SIM
-m5_dumpreset_stats(0,0);
+        m5_dumpreset_stats(0,0);
 #endif
 
 #ifdef __ENERGY
-      ENERGY_END();
+        ENERGY_END();
 #endif
-
-#ifdef __USEPROF
-//    prof_end(profcnt);  
-#endif
+    }
 
     pthread_attr_destroy( &attr );
 
-    fprintf(stderr, "\n0: %d, %0.2f, %0.2f, %d, ", size, ins, del, threads);
-    
+    if(!isSilent) {
+        fprintf(stderr, "\n0: %d, %0.2f, %0.2f, %d, ", key_range, ins, del, threads);
+    }
+
     result.counter_del = 0;
     result.counter_del_s = 0;
     result.counter_ins = 0;
@@ -410,29 +438,60 @@ m5_dumpreset_stats(0,0);
          fprintf(stderr, "\n(%d): %ld,%ld,%ld,%ld", i, arg->counter_ins, arg->counter_del, arg->counter_search, arg->timer);
          fprintf(stderr, "\n(%d): %ld,%ld,%ld,%ld", i, arg->counter_ins_s, arg->counter_del_s, arg->counter_search_s, arg->timer);
          */
+
+	/* Free all pools */
+	free(arg->pool);
     }
-    
+
     fprintf(stderr, " %ld, %ld, %ld,", result.counter_ins, result.counter_del, result.counter_search);
     fprintf(stderr, " %ld, %ld, %ld, %ld\n", result.counter_ins_s, result.counter_del_s, result.counter_search_s, result.timer);
-    
+
+    if(!isSilent) {
+        printf("#OPS,OPERATIONS,%ld\n", result.counter_ins+result.counter_del+result.counter_search);
 #ifdef __USEPROF
-    printf("#D,TIME,%ld\n", result.timer);
-    prof_print_all_threads(threads, thread_local_values);
+        printf("#D,TIME,%ld\n", result.timer);
+        prof_print_all_threads(threads, thread_local_values);
 #endif
+    }
 
     free(pid);
     free(inputs);
     free(ops);
     free(args);
-    
+
     return 0;
 }
 
-void start_benchmark(data_t root, int key_size, int updaterate, int num_thread, int v){
+void start_prefill(data_t root, int key_range, int updaterate, int num_thread, int initial){
+
+    if(updaterate == 0)
+        updaterate = 50;
+
+    float update = (float)updaterate/2;
+
+    // For initial, since number of insert is only percentage, baloon the initial number
+    int insertSize = (int) ((100/update) * initial);
+
+#ifdef ABTREE
+    const int threadID = 0;
+#endif
+
+    // Do single insert first
+#ifdef LFBST
+    BENCH_INSERT(&root[0], rand()%key_range);
+#else
+    BENCH_INSERT(root,  rand()%key_range);
+#endif
+
+    benchmark(root, num_thread, key_range, update, update, insertSize, 1);
+
+}
+
+void start_benchmark(data_t root, int key_range, int updaterate, int num_thread, int v){
     
     float update = (float)updaterate/2;
     
-    benchmark(root, num_thread, key_size, update, update);
+    benchmark(root, num_thread, key_range, update, update, 0, v);
     
 }
 
@@ -482,8 +541,12 @@ void* do_test (void* args){
 
     fprintf(stdout, "id:%d, s:%d, r:%d, e:%d\n", myid, start, range, end);
 
-#if defined GBST && !defined __PREALLOCGNODES
-    init_threads(untest->max_node);
+#if defined BBST && !defined __PREALLOCGNODES
+    init_threads(untest->max_node, untest->nb_thread);
+#endif
+
+#ifdef ABTREE
+    const int threadID = arg->tid;
 #endif
 
 #ifdef BSTTK
@@ -506,7 +569,11 @@ void* do_test (void* args){
 #ifdef RCUT
 		urcu_register(myid);
 #endif
-	
+
+#ifdef BWTREE
+	untest->AssignGCID(arg->tid);
+#endif
+
     pthread_barrier_wait(&bench_barrier);
     
     for (i = start; i < end; i++){
@@ -524,9 +591,11 @@ void testpar(data_t root, int updaterate, int num_thread, int random){
     int i, count = 0;
     struct timeval st,ed;
     pthread_barrier_init(&bench_barrier, NULL, num_thread + 1);
-    
+
     pthread_t pid[num_thread];
     struct testpardata args [num_thread];
+
+    MAXITER = MAX_ITER;
 
     printf("Concurrent Test:\n\n");
     printf("Inserting %d (%s) elements...\n", MAXITER, (random?"Random":"Increasing"));
@@ -565,7 +634,11 @@ void testpar(data_t root, int updaterate, int num_thread, int random){
     printf("time : %lu usec\n", (ed.tv_sec - st.tv_sec)*1000000 + ed.tv_usec - st.tv_usec);
     
     //report_all((*untest->root)->a);
-    
+
+#ifdef ABTREE
+    const int threadID = 0; 
+#endif
+
     for(i = 0; i < allkey; i++){
 #ifdef LFBST
 		if(BENCH_SEARCH(&root[0], bulk[i]) < 1){
@@ -576,19 +649,21 @@ void testpar(data_t root, int updaterate, int num_thread, int random){
 		}
     }
     fprintf(stderr, "Error searching :%d!\n",count);
-    
+    free(bulk);
 }
 
 void testseq(data_t root, int random){
-    
+
   int i, count = 0, seed;
   struct timeval st,ed; 
 
   int *values;
 
+  MAXITER = MAX_ITER;
+
   values = (int *) calloc(MAXITER, sizeof(int));
 	
-  seed = time(NULL);
+  seed = (int) time(NULL);
   srand(seed);
 
   if(random)
@@ -601,6 +676,10 @@ void testseq(data_t root, int random){
   printf("Inserting %d (%s) elements...\n", MAXITER, (random?"Random":"Increasing"));
 
   gettimeofday(&st, NULL);
+
+#ifdef ABTREE
+  const int threadID = 0;
+#endif
 
   for(i = 0; i < MAXITER; i++){
 #ifdef LFBST
@@ -632,7 +711,41 @@ void testseq(data_t root, int random){
   printf("search time : %lu usec\n", (ed.tv_sec - st.tv_sec)*1000000 + ed.tv_usec - st.tv_usec);
 
   fprintf(stderr, "Error searching :%d!\n",count);
-    
+
+#ifdef __TESTSPARSE
+  fprintf(stdout, "The size of pool is %d\n", MAXITER * sizeof(int));
+
+  fprintf(stdout, "Press any key!\n");
+  getchar();
+  /* 10% deletion */
+  for(i = 0; i < (MAXITER - (MAXITER * 0.9)); i++){
+#ifdef LFBST
+	BENCH_DELETE(&root[0], values[i]);
+#else
+	BENCH_DELETE(root, values[i]);
+#endif
+      }
+
+  count = 0;
+
+  for(i = 0; i < MAXITER; i++){
+#ifdef LFBST
+	if(BENCH_SEARCH(&root[0], values[i]) < 1){
+#else		
+	if(BENCH_SEARCH(root, values[i]) < 1){
+#endif
+		count++;
+	}
+  }
+
+  fprintf(stderr, "Values left: %d\n", count);
+
+  free(values);
+  fprintf(stdout, "Press any key to continue!\n");
+  getchar();
+  exit(0);
+#endif
+
   free(values);
 }
 
