@@ -2,7 +2,7 @@
 
 This repository contains the source code and the benchmark framework from the below article:
 
-*Phuong H. Ha, Otto J. Anshus,  Ibrahim Umar. Efficient concurrent search trees using portable fine-grained locality. IEEE Transactions on Parallel and Distributed Systems, 30(7): 1580-1595, 2019. IEEE.* 
+*Phuong H. Ha, Otto J. Anshus,  Ibrahim Umar. Efficient concurrent search trees using portable fine-grained locality. IEEE Transactions on Parallel and Distributed Systems, 30(7): 1580-1595, 2019. IEEE. [(link)](https://doi.org/10.1109/TPDS.2019.2892968)* 
 
 *Ibrahim Umar, Otto J. Anshus, and Phuong H. Ha. GreenBST: An energy-efficient concurrent search tree. Proceedings of the 22nd International European Conference on Parallel and Distributed Computing (Euro-Par ’16), 2016, LNCS, pp. 502-517, Springer.[(link)](http://dx.doi.org/10.1007/978-3-319-43659-3_37)*
 
